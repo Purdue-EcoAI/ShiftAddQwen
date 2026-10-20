@@ -15,6 +15,8 @@ ORDER = ['Q8_0', 'Q4_K_M', 'UD-Q3_K_XL', 'v2g4.4_ft', 'Q3_K_M', 'v2g4.0_ft', 'UD
          'v2g3.2_ft', 'UD-IQ2_M', 'v2g3.0_ft', 'v2g2.6_ft']
 HIDE = {'v2g4.4_ft'}  # superseded by the re-planned high-bit points
 rows = {r['label']: r for r in json.load(open(src))}
+ci_path = R / "results/task_ci.json"  # bootstrap 95% CI of the task mean (tools/task_ci.py)
+ci = json.load(open(ci_path)) if ci_path.exists() else {}
 out = []
 for l in ORDER:
     if l in HIDE or l not in rows:
@@ -24,6 +26,7 @@ for l in ORDER:
     out.append(dict(model=display(l), short=short(l), id=l, ours=is_ours(l), file_gb=r['file_gb'], mix_kld=r['mix_kld'],
                     wiki_kld=r['wiki_kld'], wiki_ppl=r['wiki_ppl'],
                     tasks_public4=round(sum(pub) / 4, 1) if None not in pub else None,
+                    tasks_ci=[ci[l]["lo"], ci[l]["hi"]] if l in ci else None,
                     gsm8k=c.get('math'), mmlu_pro=c.get('knowledge'), humaneval=c.get('code'), mgsm=c.get('multiling'),
                     decode_tok_s=r.get('tg128'), prefill_tok_s=r.get('pp512'), mtp_decode_tok_s=r.get('mtp_tok_s'),
                     mtp_accept=r.get('mtp_accept'), gpu_resident_gib=(r['gpu_mib'] / 1024 if r.get('gpu_mib') else None),

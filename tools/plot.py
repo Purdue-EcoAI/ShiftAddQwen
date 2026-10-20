@@ -60,6 +60,9 @@ def panel(ax, key, ylabel, title, log=False, ylim=None):
     ax.plot([r["file_gb"] for r in ours], [r[key] for r in ours], color=C_OURS, lw=2.6, zorder=2)
     for r in rows:
         st = style(r)
+        if key == "tasks_public4" and r.get("tasks_ci"):  # bootstrap 95% CI over the task items
+            ax.errorbar(r["file_gb"], r[key], yerr=[[r[key] - r["tasks_ci"][0]], [r["tasks_ci"][1] - r[key]]],
+                        fmt="none", ecolor=st["color"], elinewidth=1.4, capsize=4, alpha=0.55, zorder=1)
         ax.scatter(r["file_gb"], r[key], marker=st["marker"], s=st["s"], color=st["color"], zorder=st["z"],
                    edgecolors="white", linewidths=0.6)
         dx, dy = OFF[key].get(short(r), (5, 3))
@@ -81,7 +84,7 @@ def panel(ax, key, ylabel, title, log=False, ylim=None):
 
 fig, axes = plt.subplots(1, 3, figsize=(24, 7.6))
 panel(axes[0], "mix_kld", r"KLD to BF16 $\downarrow$ (log)", "(a) Output fidelity", log=True, ylim=(0.02, 0.22))
-panel(axes[1], "tasks_public4", r"Task accuracy (%) $\uparrow$", "(b) Downstream tasks", ylim=(66.5, 80.5))
+panel(axes[1], "tasks_public4", r"Task accuracy (%) $\uparrow$", "(b) Downstream tasks (95% CI)", ylim=(63, 83))
 panel(axes[2], "decode_tok_s", r"Decode throughput (tok/s) $\uparrow$", "(c) Speed (A100, CUDA)", ylim=(105, 156))
 handles = [Line2D([], [], color=C_OURS, marker="o", lw=2.6, ms=13, label="ShiftAddQwen-3.5-9B-$x$bits (ours)"),
            Line2D([], [], color=C_BASE, marker="*", lw=0, ms=24, label="UnslothAI/Qwen-3.5-9B-Q4_K_M (reference)"),

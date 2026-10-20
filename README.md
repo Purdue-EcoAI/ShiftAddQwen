@@ -23,7 +23,7 @@ recipes (`UD-Q3_K_XL`, `UD-IQ3_XXS`, `UD-Q2_K_XL`, `UD-IQ2_M`). `Q4_K_M` (5.87 G
 
 *Figure 1. ShiftAddQwen-3.5-9B-*x*bits (*x* = average bits per decoder weight) against the
 UnslothAI/Qwen-3.5-9B-* GGUF quants. (a) KL divergence to the BF16 model on held-out mixed-domain text; (b) mean accuracy on
-GSM8K, MMLU-Pro, HumanEval and MGSM; (c) decode throughput (A100, CUDA). Vector: [docs/frontier.pdf](docs/frontier.pdf).*
+GSM8K, MMLU-Pro, HumanEval and MGSM, with bootstrap 95% confidence intervals over the 844 items; (c) decode throughput (A100, CUDA). Vector: [docs/frontier.pdf](docs/frontier.pdf).*
 
 Full measurements for every model in Figure 1 (KLD, PPL, per-task accuracy, prefill/decode/MTP
 throughput) are in [docs/results.md](docs/results.md); raw numbers in `results/summary.json`.
