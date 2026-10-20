@@ -1,0 +1,2055 @@
+diff --git a/ggml/include/ggml.h b/ggml/include/ggml.h
+index 224bdef..e6ac26d 100644
+--- a/ggml/include/ggml.h
++++ b/ggml/include/ggml.h
+@@ -430,7 +430,23 @@ extern "C" {
+         GGML_TYPE_NVFP4   = 40, // NVFP4 (4 blocks, E4M3 scale)
+         GGML_TYPE_Q1_0    = 41,
+         GGML_TYPE_Q2_0    = 42,
+-        GGML_TYPE_COUNT   = 43,
++        GGML_TYPE_SA2     = 43, // ShiftAdd BCQ: 2 bit-planes, alpha group 64
++        GGML_TYPE_SA3     = 44, // ShiftAdd BCQ: 3 bit-planes, alpha group 64
++        GGML_TYPE_SA4     = 45, // ShiftAdd BCQ: 4 bit-planes, alpha group 64
++        GGML_TYPE_SA2S    = 46, // ShiftAdd BCQ: 2 bit-planes, alpha group 32
++        GGML_TYPE_SA2_128 = 47, // ShiftAdd BCQ: 2 bit-planes, alpha group 128
++        GGML_TYPE_SA3_128 = 48, // ShiftAdd BCQ: 3 bit-planes, alpha group 128
++        GGML_TYPE_SA4_128 = 49, // ShiftAdd BCQ: 4 bit-planes, alpha group 128
++        GGML_TYPE_SA2_256 = 50, // ShiftAdd BCQ: 2 bit-planes, alpha group 256
++        GGML_TYPE_SA3_256 = 51, // ShiftAdd BCQ: 3 bit-planes, alpha group 256
++        GGML_TYPE_SA4_256 = 52, // ShiftAdd BCQ: 4 bit-planes, alpha group 256
++        GGML_TYPE_SA5     = 53, // ShiftAdd BCQ: 5 bit-planes, alpha group 64
++        GGML_TYPE_SA5_128 = 54, // ShiftAdd BCQ: 5 bit-planes, alpha group 128
++        GGML_TYPE_SA5_256 = 55, // ShiftAdd BCQ: 5 bit-planes, alpha group 256
++        GGML_TYPE_SA6     = 56, // ShiftAdd BCQ: 6 bit-planes, alpha group 64
++        GGML_TYPE_SA6_128 = 57, // ShiftAdd BCQ: 6 bit-planes, alpha group 128
++        GGML_TYPE_SA6_256 = 58, // ShiftAdd BCQ: 6 bit-planes, alpha group 256
++        GGML_TYPE_COUNT   = 59,
+     };
+ 
+     // [TAG_GGML_PREC]
+diff --git a/ggml/src/ggml-common.h b/ggml/src/ggml-common.h
+index 1dbbe32..d1ad230 100644
+--- a/ggml/src/ggml-common.h
++++ b/ggml/src/ggml-common.h
+@@ -191,6 +191,68 @@ typedef struct {
+ } block_q2_0;
+ static_assert(sizeof(block_q2_0) == sizeof(ggml_half) + QK2_0 / 4, "wrong q2_0 block size/padding");
+ 
++// ShiftAdd / binary-coding quantization (BCQ): w_j = sum_p d*a[g*Q+p] * (bit_{p,j} ? +1 : -1), g = j/G.
++// A mat-vec is Q sign-add passes over the activations plus one scale per (group, plane).
++#define QK_SA 256
++#define GGML_SA_BLOCK(NAME, Q, G)                                   \
++typedef struct {                                                   \
++    uint8_t   qs[(Q)*QK_SA/8]; /* bit-planes, plane-major */        \
++    uint8_t   a[(Q)*(QK_SA/(G))]; /* alpha codes, a[g*Q + p] */     \
++    uint8_t   d[2];            /* fp16 super-block scale, byte-stored so odd sizes stay unpadded */ \
++} NAME;                                                            \
++static_assert(sizeof(NAME) == (Q)*QK_SA/8 + (Q)*(QK_SA/(G)) + 2, "wrong " #NAME " size/padding");
++
++#define QI_SA (QK_SA / 32)
++#define QR_SA 1
++#define SA2_Q 2
++#define SA2_G 64
++#define SA3_Q 3
++#define SA3_G 64
++#define SA4_Q 4
++#define SA4_G 64
++#define SA2S_Q 2
++#define SA2S_G 32
++#define SA2_128_Q 2
++#define SA2_128_G 128
++#define SA3_128_Q 3
++#define SA3_128_G 128
++#define SA4_128_Q 4
++#define SA4_128_G 128
++#define SA2_256_Q 2
++#define SA2_256_G 256
++#define SA3_256_Q 3
++#define SA3_256_G 256
++#define SA4_256_Q 4
++#define SA4_256_G 256
++#define SA5_Q 5
++#define SA5_G 64
++#define SA5_128_Q 5
++#define SA5_128_G 128
++#define SA5_256_Q 5
++#define SA5_256_G 256
++#define SA6_Q 6
++#define SA6_G 64
++#define SA6_128_Q 6
++#define SA6_128_G 128
++#define SA6_256_Q 6
++#define SA6_256_G 256
++GGML_SA_BLOCK(block_sa2, SA2_Q, SA2_G)
++GGML_SA_BLOCK(block_sa3, SA3_Q, SA3_G)
++GGML_SA_BLOCK(block_sa4, SA4_Q, SA4_G)
++GGML_SA_BLOCK(block_sa2s, SA2S_Q, SA2S_G)
++GGML_SA_BLOCK(block_sa2_128, SA2_128_Q, SA2_128_G)
++GGML_SA_BLOCK(block_sa3_128, SA3_128_Q, SA3_128_G)
++GGML_SA_BLOCK(block_sa4_128, SA4_128_Q, SA4_128_G)
++GGML_SA_BLOCK(block_sa2_256, SA2_256_Q, SA2_256_G)
++GGML_SA_BLOCK(block_sa3_256, SA3_256_Q, SA3_256_G)
++GGML_SA_BLOCK(block_sa4_256, SA4_256_Q, SA4_256_G)
++GGML_SA_BLOCK(block_sa5, SA5_Q, SA5_G)
++GGML_SA_BLOCK(block_sa5_128, SA5_128_Q, SA5_128_G)
++GGML_SA_BLOCK(block_sa5_256, SA5_256_Q, SA5_256_G)
++GGML_SA_BLOCK(block_sa6, SA6_Q, SA6_G)
++GGML_SA_BLOCK(block_sa6_128, SA6_128_Q, SA6_128_G)
++GGML_SA_BLOCK(block_sa6_256, SA6_256_Q, SA6_256_G)
++
+ #define QK4_0 32
+ typedef struct {
+     ggml_half d;           // delta
+diff --git a/ggml/src/ggml-cpu/ggml-cpu.c b/ggml/src/ggml-cpu/ggml-cpu.c
+index 7c274c0..efd4b31 100644
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -237,6 +237,102 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
+         .vec_dot_type             = GGML_TYPE_Q8_0,
+         .nrows                    = 1,
+     },
++    [GGML_TYPE_SA2] = {
++        .from_float               = quantize_row_sa2,
++        .vec_dot                  = ggml_vec_dot_sa2_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA3] = {
++        .from_float               = quantize_row_sa3,
++        .vec_dot                  = ggml_vec_dot_sa3_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA4] = {
++        .from_float               = quantize_row_sa4,
++        .vec_dot                  = ggml_vec_dot_sa4_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA2S] = {
++        .from_float               = quantize_row_sa2s,
++        .vec_dot                  = ggml_vec_dot_sa2s_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA2_128] = {
++        .from_float               = quantize_row_sa2_128,
++        .vec_dot                  = ggml_vec_dot_sa2_128_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA3_128] = {
++        .from_float               = quantize_row_sa3_128,
++        .vec_dot                  = ggml_vec_dot_sa3_128_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA4_128] = {
++        .from_float               = quantize_row_sa4_128,
++        .vec_dot                  = ggml_vec_dot_sa4_128_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA2_256] = {
++        .from_float               = quantize_row_sa2_256,
++        .vec_dot                  = ggml_vec_dot_sa2_256_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA3_256] = {
++        .from_float               = quantize_row_sa3_256,
++        .vec_dot                  = ggml_vec_dot_sa3_256_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA4_256] = {
++        .from_float               = quantize_row_sa4_256,
++        .vec_dot                  = ggml_vec_dot_sa4_256_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA5] = {
++        .from_float               = quantize_row_sa5,
++        .vec_dot                  = ggml_vec_dot_sa5_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA5_128] = {
++        .from_float               = quantize_row_sa5_128,
++        .vec_dot                  = ggml_vec_dot_sa5_128_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA5_256] = {
++        .from_float               = quantize_row_sa5_256,
++        .vec_dot                  = ggml_vec_dot_sa5_256_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA6] = {
++        .from_float               = quantize_row_sa6,
++        .vec_dot                  = ggml_vec_dot_sa6_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA6_128] = {
++        .from_float               = quantize_row_sa6_128,
++        .vec_dot                  = ggml_vec_dot_sa6_128_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
++    [GGML_TYPE_SA6_256] = {
++        .from_float               = quantize_row_sa6_256,
++        .vec_dot                  = ggml_vec_dot_sa6_256_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
+     [GGML_TYPE_Q4_0] = {
+         .from_float               = quantize_row_q4_0,
+         .vec_dot                  = ggml_vec_dot_q4_0_q8_0,
+diff --git a/ggml/src/ggml-cpu/ops.cpp b/ggml/src/ggml-cpu/ops.cpp
+index c7e7c47..e76b61a 100644
+--- a/ggml/src/ggml-cpu/ops.cpp
++++ b/ggml/src/ggml-cpu/ops.cpp
+@@ -666,6 +666,22 @@ void ggml_compute_forward_add(
+             } break;
+         case GGML_TYPE_Q1_0:
+         case GGML_TYPE_Q2_0:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2S:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -1117,6 +1133,22 @@ void ggml_compute_forward_add1(
+             } break;
+         case GGML_TYPE_Q1_0:
+         case GGML_TYPE_Q2_0:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2S:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -1248,6 +1280,22 @@ void ggml_compute_forward_acc(
+         case GGML_TYPE_BF16:
+         case GGML_TYPE_Q1_0:
+         case GGML_TYPE_Q2_0:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2S:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -4834,6 +4882,22 @@ void ggml_compute_forward_out_prod(
+     switch (src0->type) {
+         case GGML_TYPE_Q1_0:
+         case GGML_TYPE_Q2_0:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2S:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -5152,6 +5216,22 @@ void ggml_compute_forward_set(
+         case GGML_TYPE_BF16:
+         case GGML_TYPE_Q1_0:
+         case GGML_TYPE_Q2_0:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2S:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -5377,6 +5457,22 @@ void ggml_compute_forward_get_rows(
+     switch (src0->type) {
+         case GGML_TYPE_Q1_0:
+         case GGML_TYPE_Q2_0:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2S:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -6137,6 +6233,22 @@ void ggml_compute_forward_clamp(
+         case GGML_TYPE_BF16:
+         case GGML_TYPE_Q1_0:
+         case GGML_TYPE_Q2_0:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2S:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+diff --git a/ggml/src/ggml-cpu/quants.c b/ggml/src/ggml-cpu/quants.c
+index 5e36459..36dfe56 100644
+--- a/ggml/src/ggml-cpu/quants.c
++++ b/ggml/src/ggml-cpu/quants.c
+@@ -174,6 +174,67 @@ void ggml_vec_dot_q1_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, c
+     *s = sumf;
+ }
+ 
++// ShiftAdd / BCQ: per 32-element chunk and bit-plane, sum_j s_j*y_j = 2*sum_{bit=1} y_j - sum_j y_j
++static inline float ggml_vec_dot_sa_q8_0_impl(int n, const uint8_t * GGML_RESTRICT x, const block_q8_0 * GGML_RESTRICT y, int Q, int G) {
++    assert(n % QK_SA == 0);
++    const int ng = QK_SA / G;
++    const size_t bsz = Q*QK_SA/8 + Q*ng + sizeof(ggml_half);
++    const int nb = n / QK_SA;
++    float sumf = 0.0f;
++    for (int i = 0; i < nb; ++i) {
++        const uint8_t * qs = x + i*bsz;
++        const uint8_t * a  = qs + Q*QK_SA/8;
++        ggml_half dh; memcpy(&dh, a + Q*ng, sizeof(dh));
++        const float d = GGML_CPU_FP16_TO_FP32(dh);
++        float acc = 0.0f;
++        for (int c = 0; c < QK_SA/32; ++c) {
++            const block_q8_0 * yb = &y[i*(QK_SA/32) + c];
++            const float d8 = GGML_CPU_FP16_TO_FP32(yb->d);
++            int ysum = 0;
++            for (int j = 0; j < 32; ++j) ysum += yb->qs[j];
++            const int g = c*32/G;
++            for (int p = 0; p < Q; ++p) {
++                const uint8_t * bits = qs + p*32 + c*4;
++                int pos = 0;
++                for (int j = 0; j < 32; ++j) {
++                    if ((bits[j/8] >> (j%8)) & 1) pos += yb->qs[j];
++                }
++                acc += (float) a[g*Q + p] * d8 * (float)(2*pos - ysum);
++            }
++        }
++        sumf += d * acc;
++    }
++    return sumf;
++}
++
++#define GGML_SA_CPU_IMPL(name, Q, G)                                                                                    \
++void quantize_row_##name(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k) {                           \
++    quantize_row_##name##_ref(x, (block_##name *) y, k);                                                                \
++}                                                                                                                       \
++void ggml_vec_dot_##name##_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx,  \
++                                const void * GGML_RESTRICT vy, size_t by, int nrc) {                                   \
++    assert(nrc == 1);                                                                                                   \
++    UNUSED(nrc); UNUSED(bx); UNUSED(by); UNUSED(bs);                                                                    \
++    *s = ggml_vec_dot_sa_q8_0_impl(n, (const uint8_t *) vx, (const block_q8_0 *) vy, Q, G);                            \
++}
++
++GGML_SA_CPU_IMPL(sa2, SA2_Q, SA2_G)
++GGML_SA_CPU_IMPL(sa3, SA3_Q, SA3_G)
++GGML_SA_CPU_IMPL(sa4, SA4_Q, SA4_G)
++GGML_SA_CPU_IMPL(sa2s, SA2S_Q, SA2S_G)
++GGML_SA_CPU_IMPL(sa2_128, SA2_128_Q, SA2_128_G)
++GGML_SA_CPU_IMPL(sa3_128, SA3_128_Q, SA3_128_G)
++GGML_SA_CPU_IMPL(sa4_128, SA4_128_Q, SA4_128_G)
++GGML_SA_CPU_IMPL(sa2_256, SA2_256_Q, SA2_256_G)
++GGML_SA_CPU_IMPL(sa3_256, SA3_256_Q, SA3_256_G)
++GGML_SA_CPU_IMPL(sa4_256, SA4_256_Q, SA4_256_G)
++GGML_SA_CPU_IMPL(sa5, SA5_Q, SA5_G)
++GGML_SA_CPU_IMPL(sa5_128, SA5_128_Q, SA5_128_G)
++GGML_SA_CPU_IMPL(sa5_256, SA5_256_Q, SA5_256_G)
++GGML_SA_CPU_IMPL(sa6, SA6_Q, SA6_G)
++GGML_SA_CPU_IMPL(sa6_128, SA6_128_Q, SA6_128_G)
++GGML_SA_CPU_IMPL(sa6_256, SA6_256_Q, SA6_256_G)
++
+ void ggml_vec_dot_q2_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+     const int qk = QK2_0;
+     const int nb = n / qk;
+diff --git a/ggml/src/ggml-cpu/quants.h b/ggml/src/ggml-cpu/quants.h
+index 93ea7ee..d9afc10 100644
+--- a/ggml/src/ggml-cpu/quants.h
++++ b/ggml/src/ggml-cpu/quants.h
+@@ -40,6 +40,38 @@ void quantize_row_iq4_xs (const float * GGML_RESTRICT x, void * GGML_RESTRICT y,
+ // Dot product
+ void ggml_vec_dot_q1_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q2_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void quantize_row_sa2(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void ggml_vec_dot_sa2_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void quantize_row_sa3(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void ggml_vec_dot_sa3_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void quantize_row_sa4(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa2s(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa2_128(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa3_128(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa4_128(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa2_256(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa3_256(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa4_256(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa5(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa5_128(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa5_256(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa6(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa6_128(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_sa6_256(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void ggml_vec_dot_sa4_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa2s_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa2_128_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa3_128_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa4_128_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa2_256_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa3_256_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa4_256_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa5_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa5_128_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa5_256_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa6_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa6_128_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_sa6_256_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q4_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q4_1_q8_1(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q5_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+diff --git a/ggml/src/ggml-cuda/common.cuh b/ggml/src/ggml-cuda/common.cuh
+index 928607c..fbdf9e7 100644
+--- a/ggml/src/ggml-cuda/common.cuh
++++ b/ggml/src/ggml-cuda/common.cuh
+@@ -995,6 +995,131 @@ struct ggml_cuda_type_traits<GGML_TYPE_Q2_0> {
+     static constexpr int bs = sizeof(block_q2_0);
+ };
+ 
++static constexpr __host__ __device__ bool ggml_cuda_type_is_sa(ggml_type type) {
++    return type == GGML_TYPE_SA2 || type == GGML_TYPE_SA3 || type == GGML_TYPE_SA4 || type == GGML_TYPE_SA2S || type == GGML_TYPE_SA2_128 || type == GGML_TYPE_SA3_128 || type == GGML_TYPE_SA4_128 || type == GGML_TYPE_SA2_256 || type == GGML_TYPE_SA3_256 || type == GGML_TYPE_SA4_256 || type == GGML_TYPE_SA5 || type == GGML_TYPE_SA5_128 || type == GGML_TYPE_SA5_256 || type == GGML_TYPE_SA6 || type == GGML_TYPE_SA6_128 || type == GGML_TYPE_SA6_256;
++}
++
++// fp16 super-block scale of a ShiftAdd block (stored as 2 bytes so odd-sized blocks are unpadded)
++template <typename block_t>
++static __device__ __forceinline__ float ggml_cuda_sa_d(const block_t * x) {
++    return __half2float(__ushort_as_half((unsigned short) (x->d[0] | (x->d[1] << 8))));
++}
++
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA2> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa2);
++};
++
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA3> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa3);
++};
++
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA4> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa4);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA2S> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa2s);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA2_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa2_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA3_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa3_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA4_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa4_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA2_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa2_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA3_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa3_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA4_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa4_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA5> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa5);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA5_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa5_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA5_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa5_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA6> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa6);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA6_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa6_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA6_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa6_256);
++};
++
+ template<>
+ struct ggml_cuda_type_traits<GGML_TYPE_Q4_0> {
+     static constexpr int qk = QK4_0;
+diff --git a/ggml/src/ggml-cuda/convert.cu b/ggml/src/ggml-cuda/convert.cu
+index 77fd288..dcc00be 100644
+--- a/ggml/src/ggml-cuda/convert.cu
++++ b/ggml/src/ggml-cuda/convert.cu
+@@ -275,6 +275,38 @@ static void dequantize_block_q8_0_f16_cuda(const void * __restrict__ vx, half *
+     }
+ }
+ 
++
++// ShiftAdd / BCQ: one warp per 256-element super-block, each thread expands one byte of every bit-plane (8 elements)
++template <int Q, int G, typename block_t, typename dst_t>
++static __global__ void dequantize_block_sa(const void * __restrict__ vx, dst_t * __restrict__ yy) {
++    const int64_t i = blockIdx.x;
++    const block_t * x = (const block_t *) vx + i;
++    const int t = threadIdx.x; // 0..31 -> elements 8t..8t+7
++    const float d = ggml_cuda_sa_d(x);
++    const int g = 8*t / G;
++    float v[8] = {0.0f};
++#pragma unroll
++    for (int p = 0; p < Q; ++p) {
++        const float al = d * x->a[g*Q + p];
++        const int byte = x->qs[p*32 + t];
++#pragma unroll
++        for (int l = 0; l < 8; ++l) {
++            v[l] += ((byte >> l) & 1) ? al : -al;
++        }
++    }
++    dst_t * y = yy + i*QK_SA + 8*t;
++#pragma unroll
++    for (int l = 0; l < 8; ++l) {
++        y[l] = ggml_cuda_cast<dst_t>(v[l]);
++    }
++}
++
++template <int Q, int G, typename block_t, typename dst_t>
++static void dequantize_row_sa_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
++    const int64_t nb = k / QK_SA;
++    dequantize_block_sa<Q, G, block_t><<<nb, 32, 0, stream>>>(vx, y);
++}
++
+ template<typename dst_t>
+ static void dequantize_row_q2_K_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
+     const int nb = k / QK_K;
+@@ -499,6 +531,38 @@ to_bf16_cuda_t ggml_get_to_bf16_cuda(ggml_type type) {
+             return dequantize_block_cont_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cont_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_row_sa_cuda<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:
++            return dequantize_row_sa_cuda<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:
++            return dequantize_row_sa_cuda<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2S:
++            return dequantize_row_sa_cuda<SA2S_Q, SA2S_G, block_sa2s>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_row_sa_cuda<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_row_sa_cuda<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_row_sa_cuda<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_row_sa_cuda<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_row_sa_cuda<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_row_sa_cuda<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:
++            return dequantize_row_sa_cuda<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_row_sa_cuda<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_row_sa_cuda<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:
++            return dequantize_row_sa_cuda<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_row_sa_cuda<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_row_sa_cuda<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -556,6 +620,38 @@ to_fp16_cuda_t ggml_get_to_fp16_cuda(ggml_type type) {
+             return dequantize_block_cont_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cont_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_row_sa_cuda<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:
++            return dequantize_row_sa_cuda<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:
++            return dequantize_row_sa_cuda<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2S:
++            return dequantize_row_sa_cuda<SA2S_Q, SA2S_G, block_sa2s>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_row_sa_cuda<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_row_sa_cuda<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_row_sa_cuda<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_row_sa_cuda<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_row_sa_cuda<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_row_sa_cuda<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:
++            return dequantize_row_sa_cuda<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_row_sa_cuda<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_row_sa_cuda<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:
++            return dequantize_row_sa_cuda<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_row_sa_cuda<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_row_sa_cuda<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -616,6 +712,38 @@ to_fp32_cuda_t ggml_get_to_fp32_cuda(ggml_type type) {
+             return dequantize_block_cont_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cont_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_row_sa_cuda<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:
++            return dequantize_row_sa_cuda<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:
++            return dequantize_row_sa_cuda<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2S:
++            return dequantize_row_sa_cuda<SA2S_Q, SA2S_G, block_sa2s>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_row_sa_cuda<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_row_sa_cuda<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_row_sa_cuda<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_row_sa_cuda<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_row_sa_cuda<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_row_sa_cuda<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:
++            return dequantize_row_sa_cuda<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_row_sa_cuda<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_row_sa_cuda<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:
++            return dequantize_row_sa_cuda<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_row_sa_cuda<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_row_sa_cuda<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -675,6 +803,38 @@ to_fp16_nc_cuda_t ggml_get_to_fp16_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>;
++        case GGML_TYPE_SA3:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>;
++        case GGML_TYPE_SA4:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>;
++        case GGML_TYPE_SA2S:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2S_Q, SA2S_G, block_sa2s>>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>;
++        case GGML_TYPE_SA5:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>;
++        case GGML_TYPE_SA6:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+@@ -700,6 +860,38 @@ to_bf16_nc_cuda_t ggml_get_to_bf16_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>;
++        case GGML_TYPE_SA3:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>;
++        case GGML_TYPE_SA4:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>;
++        case GGML_TYPE_SA2S:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2S_Q, SA2S_G, block_sa2s>>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>;
++        case GGML_TYPE_SA5:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>;
++        case GGML_TYPE_SA6:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+@@ -725,6 +917,38 @@ to_fp32_nc_cuda_t ggml_get_to_fp32_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>;
++        case GGML_TYPE_SA3:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>;
++        case GGML_TYPE_SA4:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>;
++        case GGML_TYPE_SA2S:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2S_Q, SA2S_G, block_sa2s>>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>;
++        case GGML_TYPE_SA5:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>;
++        case GGML_TYPE_SA6:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+diff --git a/ggml/src/ggml-cuda/dequantize.cuh b/ggml/src/ggml-cuda/dequantize.cuh
+index 651524b..34928f9 100644
+--- a/ggml/src/ggml-cuda/dequantize.cuh
++++ b/ggml/src/ggml-cuda/dequantize.cuh
+@@ -23,6 +23,24 @@ static __device__ __forceinline__ void dequantize_q1_0(const void * vx, const in
+     v.y = (2*bit_1 - 1) * d;
+ }
+ 
++// ShiftAdd / BCQ: two consecutive elements (iqs, iqs+1) of super-block ib
++template <int Q, int G, typename block_t>
++static __device__ __forceinline__ void dequantize_sa(const void * vx, const int64_t ib, const int iqs, float2 & v){
++    const block_t * x = (const block_t *) vx + ib;
++    const float d = ggml_cuda_sa_d(x);
++    const int g = iqs / G;
++    float v0 = 0.0f, v1 = 0.0f;
++#pragma unroll
++    for (int p = 0; p < Q; ++p) {
++        const float al = d * x->a[g*Q + p];
++        const int byte = x->qs[p*32 + iqs/8];
++        v0 += ((byte >> (iqs % 8))       & 1) ? al : -al;
++        v1 += ((byte >> ((iqs + 1) % 8)) & 1) ? al : -al;
++    }
++    v.x = v0;
++    v.y = v1;
++}
++
+ static __device__ __forceinline__ void dequantize_q2_0(const void * vx, const int64_t ib, const int iqs, float2 & v){
+     const block_q2_0 * x = (const block_q2_0 *) vx;
+ 
+diff --git a/ggml/src/ggml-cuda/getrows.cu b/ggml/src/ggml-cuda/getrows.cu
+index 6b36b8f..ef27247 100644
+--- a/ggml/src/ggml-cuda/getrows.cu
++++ b/ggml/src/ggml-cuda/getrows.cu
+@@ -324,6 +324,70 @@ static void ggml_cuda_get_rows_switch_src0_type(
+             get_rows_cuda_q<QK2_0, QR2_0, dequantize_q2_0>(src0_d, src1_d, dst_d,
+                 ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
+             break;
++        case GGML_TYPE_SA2:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA3:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA4:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA2S:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA2S_Q, SA2S_G, block_sa2s>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA2_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA3_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA4_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA2_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA3_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA4_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA5:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA5_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA5_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA6:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA6_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA6_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
+         case GGML_TYPE_Q4_0:
+             get_rows_cuda_q<QK4_0, QR4_0, dequantize_q4_0>(src0_d, src1_d, dst_d,
+                 ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 957908f..01fc8a5 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -5454,6 +5454,9 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
+                     }
+                 }
+ #endif // GGML_USE_MUSA
++                if (op->op == GGML_OP_MUL_MAT && ggml_cuda_type_is_sa(a->type)) {
++                    return true; // ShiftAdd/BCQ: MMVQ for small batches, dequantize + cuBLAS otherwise (no MMQ / MUL_MAT_ID)
++                }
+                 switch (a->type) {
+                     case GGML_TYPE_F32:
+                     case GGML_TYPE_F16:
+@@ -5498,6 +5501,22 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
+                     case GGML_TYPE_I32:
+                     case GGML_TYPE_Q1_0:
+                     case GGML_TYPE_Q2_0:
++                    case GGML_TYPE_SA2:
++                    case GGML_TYPE_SA3:
++                    case GGML_TYPE_SA4:
++                    case GGML_TYPE_SA2S:
++                    case GGML_TYPE_SA2_128:
++                    case GGML_TYPE_SA3_128:
++                    case GGML_TYPE_SA4_128:
++                    case GGML_TYPE_SA2_256:
++                    case GGML_TYPE_SA3_256:
++                    case GGML_TYPE_SA4_256:
++                    case GGML_TYPE_SA5:
++                    case GGML_TYPE_SA5_128:
++                    case GGML_TYPE_SA5_256:
++                    case GGML_TYPE_SA6:
++                    case GGML_TYPE_SA6_128:
++                    case GGML_TYPE_SA6_256:
+                     case GGML_TYPE_Q4_0:
+                     case GGML_TYPE_Q4_1:
+                     case GGML_TYPE_Q5_0:
+diff --git a/ggml/src/ggml-cuda/mmvq.cu b/ggml/src/ggml-cuda/mmvq.cu
+index 251577d..5c10538 100644
+--- a/ggml/src/ggml-cuda/mmvq.cu
++++ b/ggml/src/ggml-cuda/mmvq.cu
+@@ -41,6 +41,22 @@ static constexpr __device__ vec_dot_q_cuda_t get_vec_dot_q_cuda(ggml_type type)
+     switch (type) {
+         case GGML_TYPE_Q1_0:    return vec_dot_q1_0_q8_1;
+         case GGML_TYPE_Q2_0:    return vec_dot_q2_0_q8_1;
++        case GGML_TYPE_SA2:     return vec_dot_sa_q8_1<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:     return vec_dot_sa_q8_1<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:     return vec_dot_sa_q8_1<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2S:     return vec_dot_sa_q8_1<SA2S_Q, SA2S_G, block_sa2s>;
++        case GGML_TYPE_SA2_128:     return vec_dot_sa_q8_1<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128:     return vec_dot_sa_q8_1<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128:     return vec_dot_sa_q8_1<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256:     return vec_dot_sa_q8_1<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256:     return vec_dot_sa_q8_1<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256:     return vec_dot_sa_q8_1<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:     return vec_dot_sa_q8_1<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128:     return vec_dot_sa_q8_1<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256:     return vec_dot_sa_q8_1<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:     return vec_dot_sa_q8_1<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128:     return vec_dot_sa_q8_1<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256:     return vec_dot_sa_q8_1<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         case GGML_TYPE_Q4_0:    return vec_dot_q4_0_q8_1;
+         case GGML_TYPE_Q4_1:    return vec_dot_q4_1_q8_1;
+         case GGML_TYPE_Q5_0:    return vec_dot_q5_0_q8_1;
+@@ -70,6 +86,22 @@ static constexpr __host__ __device__ int get_vdr_mmvq(ggml_type type) {
+     switch (type) {
+         case GGML_TYPE_Q1_0:    return VDR_Q1_0_Q8_1_MMVQ;
+         case GGML_TYPE_Q2_0:    return VDR_Q2_0_Q8_1_MMVQ;
++        case GGML_TYPE_SA2:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA3:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA4:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA2S:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA2_128:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA3_128:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA4_128:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA2_256:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA3_256:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA4_256:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA5:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA5_128:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA5_256:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA6:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA6_128:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA6_256:     return VDR_SA_Q8_1_MMVQ;
+         case GGML_TYPE_Q4_0:    return VDR_Q4_0_Q8_1_MMVQ;
+         case GGML_TYPE_Q4_1:    return VDR_Q4_1_Q8_1_MMVQ;
+         case GGML_TYPE_Q5_0:    return VDR_Q5_0_Q8_1_MMVQ;
+@@ -1299,6 +1331,102 @@ static void mul_mat_vec_q_switch_type(
+                  nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
+                  nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
+             break;
++        case GGML_TYPE_SA2:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA2>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA3:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA3>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA4:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA4>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA2S:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA2S>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA2_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA2_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA3_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA3_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA4_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA4_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA2_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA2_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA3_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA3_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA4_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA4_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA5:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA5>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA5_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA5_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA5_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA5_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA6:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA6>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA6_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA6_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA6_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA6_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
+         case GGML_TYPE_Q4_0:
+             mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_Q4_0>
+                 (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
+diff --git a/ggml/src/ggml-cuda/vecdotq.cuh b/ggml/src/ggml-cuda/vecdotq.cuh
+index f65fe53..a275596 100644
+--- a/ggml/src/ggml-cuda/vecdotq.cuh
++++ b/ggml/src/ggml-cuda/vecdotq.cuh
+@@ -725,6 +725,54 @@ static __device__ __forceinline__ float vec_dot_q1_0_q8_1(
+     return d1 * d8 * sumi;
+ }
+ 
++// ShiftAdd / BCQ x q8_1 for MMVQ. A thread handles VDR_SA_Q8_1_MMVQ consecutive 32-element chunks starting at
++// chunk iqs (0..7) of the 256-element super-block.
++// Per bit-plane p: sum_j s_j*y_j = 2*sum_{bit=1} y_j - sum_j y_j, the bit-masked sum done with dp4a on 0/1 bytes,
++// i.e. the inner loop only selects-and-adds activations; scales are applied once per (plane, chunk).
++#ifndef VDR_SA_Q8_1_MMVQ
++#define VDR_SA_Q8_1_MMVQ 1 // 1 chunk per thread measured faster than 2 on A100
++#endif
++
++template <int Q, int G, typename block_t>
++static __device__ __forceinline__ float vec_dot_sa_q8_1(
++    const void * __restrict__ vbq, const block_q8_1 * __restrict__ bq8_1, const int & kbx, const int & iqs) {
++
++    const block_t * bx = (const block_t *) vbq + kbx;
++
++    float acc = 0.0f;
++#pragma unroll
++    for (int c = 0; c < VDR_SA_Q8_1_MMVQ; ++c) {
++        const int ic = iqs + c;
++        const block_q8_1 * by = bq8_1 + ic;
++        int bits[Q];
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            bits[p] = sizeof(block_t) % 2 == 0 ? get_int_b2(bx->qs, p*8 + ic) : get_int_b1(bx->qs, p*8 + ic);
++        }
++        int sumi[Q];
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            sumi[p] = 0;
++        }
++#pragma unroll
++        for (int k = 0; k < 8; ++k) {
++            const int u = get_int_b4(by->qs, k);
++#pragma unroll
++            for (int p = 0; p < Q; ++p) {
++                const int m = (((bits[p] >> (4*k)) & 0xF) * 0x00204081) & 0x01010101;
++                sumi[p] = ggml_cuda_dp4a(m, u, sumi[p]);
++            }
++        }
++        const float2 ds = __half22float2(by->ds);
++        const int g = ic*32 / G;
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            acc += (float) bx->a[g*Q + p] * (2.0f*ds.x*sumi[p] - ds.y);
++        }
++    }
++    return ggml_cuda_sa_d(bx) * acc;
++}
++
+ static __device__ __forceinline__ float vec_dot_q2_0_q8_1(
+     const void * __restrict__ vbq, const block_q8_1 * __restrict__ bq8_1, const int & kbx, const int & iqs) {
+ 
+diff --git a/ggml/src/ggml-quants.c b/ggml/src/ggml-quants.c
+index 7750a72..73b5d44 100644
+--- a/ggml/src/ggml-quants.c
++++ b/ggml/src/ggml-quants.c
+@@ -2111,6 +2111,159 @@ size_t quantize_q1_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst,
+     return nrow * row_size;
+ }
+ 
++// ====================== ShiftAdd / BCQ (sa2, sa3, sa4) ======================
++// Generic over Q (bit-planes) and G (alpha group size); block layout: qs[Q*32] | a[Q*256/G] | d.
++
++static void sa_dequant_row(const uint8_t * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k, int Q, int G) {
++    assert(k % QK_SA == 0);
++    const int ng = QK_SA / G;
++    const size_t bs = Q*QK_SA/8 + Q*ng + sizeof(ggml_half);
++    const int64_t nb = k / QK_SA;
++    for (int64_t i = 0; i < nb; ++i) {
++        const uint8_t * qs = x + i*bs;
++        const uint8_t * a  = qs + Q*QK_SA/8;
++        ggml_half dh; memcpy(&dh, a + Q*ng, sizeof(dh));
++        const float d = GGML_FP16_TO_FP32(dh);
++        for (int j = 0; j < QK_SA; ++j) {
++            const int g = j / G;
++            float v = 0.0f;
++            for (int p = 0; p < Q; ++p) {
++                const float al = d * a[g*Q + p];
++                v += ((qs[p*32 + j/8] >> (j%8)) & 1) ? al : -al;
++            }
++            y[i*QK_SA + j] = v;
++        }
++    }
++}
++
++// nearest of the 2^Q levels sum_p +-alpha_p; returns code with bit p set for +alpha_p
++static inline int sa_nearest(float w, const float * alpha, int Q) {
++    int best = 0; float bestd = INFINITY;
++    for (int c = 0; c < (1 << Q); ++c) {
++        float v = 0.0f;
++        for (int p = 0; p < Q; ++p) v += ((c >> p) & 1) ? alpha[p] : -alpha[p];
++        const float dd = fabsf(w - v);
++        if (dd < bestd) { bestd = dd; best = c; }
++    }
++    return best;
++}
++
++// greedy BCQ init + alternating LS refinement for one group of n weights (optional importance)
++static void sa_fit_group(const float * w, const float * imp, int n, int Q, float * alpha) {
++    float r[256];
++    float sw = 0.0f;
++    for (int j = 0; j < n; ++j) { r[j] = w[j]; sw += imp ? imp[j] : 1.0f; }
++    if (sw <= 0.0f) sw = 1.0f;
++    for (int p = 0; p < Q; ++p) {
++        float s = 0.0f;
++        for (int j = 0; j < n; ++j) s += (imp ? imp[j] : 1.0f) * fabsf(r[j]);
++        alpha[p] = s / sw;
++        for (int j = 0; j < n; ++j) r[j] -= r[j] >= 0 ? alpha[p] : -alpha[p];
++    }
++    for (int it = 0; it < 4; ++it) {
++        float A[8][9] = {{0}};
++        for (int j = 0; j < n; ++j) {
++            const int c = sa_nearest(w[j], alpha, Q);
++            const float h = imp ? imp[j] : 1.0f;
++            float b[8];
++            for (int p = 0; p < Q; ++p) b[p] = ((c >> p) & 1) ? 1.0f : -1.0f;
++            for (int p = 0; p < Q; ++p) {
++                for (int q = 0; q < Q; ++q) A[p][q] += h*b[p]*b[q];
++                A[p][Q] += h*b[p]*w[j];
++            }
++        }
++        // Gaussian elimination with partial pivoting
++        bool ok = true;
++        for (int p = 0; p < Q && ok; ++p) {
++            int piv = p;
++            for (int q = p + 1; q < Q; ++q) if (fabsf(A[q][p]) > fabsf(A[piv][p])) piv = q;
++            if (fabsf(A[piv][p]) < 1e-20f) { ok = false; break; }
++            if (piv != p) for (int c = 0; c <= Q; ++c) { float t = A[p][c]; A[p][c] = A[piv][c]; A[piv][c] = t; }
++            for (int q = 0; q < Q; ++q) {
++                if (q == p) continue;
++                const float f = A[q][p] / A[p][p];
++                for (int c = p; c <= Q; ++c) A[q][c] -= f*A[p][c];
++            }
++        }
++        if (!ok) break;
++        for (int p = 0; p < Q; ++p) alpha[p] = fabsf(A[p][Q] / A[p][p]);
++        // sort descending (sign folded into the bit-planes)
++        for (int p = 0; p < Q; ++p) for (int q = p + 1; q < Q; ++q)
++            if (alpha[q] > alpha[p]) { float t = alpha[p]; alpha[p] = alpha[q]; alpha[q] = t; }
++    }
++}
++
++static void sa_quant_row(const float * GGML_RESTRICT x, uint8_t * GGML_RESTRICT y, int64_t k, int Q, int G, const float * imp) {
++    assert(k % QK_SA == 0);
++    const int ng = QK_SA / G;
++    const size_t bs = Q*QK_SA/8 + Q*ng + sizeof(ggml_half);
++    const int64_t nb = k / QK_SA;
++    float alpha[8*8];
++    for (int64_t i = 0; i < nb; ++i) {
++        const float * xb = x + i*QK_SA;
++        uint8_t * qs = y + i*bs;
++        uint8_t * a  = qs + Q*QK_SA/8;
++        float amax = 0.0f;
++        for (int g = 0; g < ng; ++g) {
++            sa_fit_group(xb + g*G, imp ? imp + g*G : NULL, G, Q, alpha + g*Q);
++            for (int p = 0; p < Q; ++p) amax = MAX(amax, alpha[g*Q + p]);
++        }
++        const float d = amax / 255.0f;
++        const ggml_half dh = GGML_FP32_TO_FP16(d);
++        memcpy(a + Q*ng, &dh, sizeof(dh));
++        const float dq = GGML_FP16_TO_FP32(dh);
++        const float id = dq > 0 ? 1.0f/dq : 0.0f;
++        memset(qs, 0, Q*QK_SA/8);
++        for (int g = 0; g < ng; ++g) {
++            float aq[8];
++            for (int p = 0; p < Q; ++p) {
++                const int c = MIN(255, MAX(0, (int) nearbyintf(alpha[g*Q + p]*id)));
++                a[g*Q + p] = (uint8_t) c;
++                aq[p] = dq*c;
++            }
++            for (int j = g*G; j < (g + 1)*G; ++j) {
++                const int c = sa_nearest(xb[j], aq, Q);
++                for (int p = 0; p < Q; ++p) if ((c >> p) & 1) qs[p*32 + j/8] |= (uint8_t)(1 << (j%8));
++            }
++        }
++    }
++}
++
++#define GGML_SA_IMPL(name, TYPE, Q, G)                                                                                  \
++void quantize_row_##name##_ref(const float * GGML_RESTRICT x, block_##name * GGML_RESTRICT y, int64_t k) {             \
++    sa_quant_row(x, (uint8_t *) y, k, Q, G, NULL);                                                                      \
++}                                                                                                                       \
++void dequantize_row_##name(const block_##name * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {                 \
++    sa_dequant_row((const uint8_t *) x, y, k, Q, G);                                                                    \
++}                                                                                                                       \
++size_t quantize_##name(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrow, int64_t n_per_row,     \
++                       const float * quant_weights) {                                                                   \
++    const size_t row_size = ggml_row_size(TYPE, n_per_row);                                                             \
++    char * qrow = (char *) dst;                                                                                         \
++    for (int64_t row = 0; row < nrow; ++row) {                                                                          \
++        sa_quant_row(src + row*n_per_row, (uint8_t *) qrow, n_per_row, Q, G, quant_weights);                            \
++        qrow += row_size;                                                                                               \
++    }                                                                                                                   \
++    return nrow * row_size;                                                                                             \
++}
++
++GGML_SA_IMPL(sa2, GGML_TYPE_SA2, SA2_Q, SA2_G)
++GGML_SA_IMPL(sa3, GGML_TYPE_SA3, SA3_Q, SA3_G)
++GGML_SA_IMPL(sa4, GGML_TYPE_SA4, SA4_Q, SA4_G)
++GGML_SA_IMPL(sa2s, GGML_TYPE_SA2S, SA2S_Q, SA2S_G)
++GGML_SA_IMPL(sa2_128, GGML_TYPE_SA2_128, SA2_128_Q, SA2_128_G)
++GGML_SA_IMPL(sa3_128, GGML_TYPE_SA3_128, SA3_128_Q, SA3_128_G)
++GGML_SA_IMPL(sa4_128, GGML_TYPE_SA4_128, SA4_128_Q, SA4_128_G)
++GGML_SA_IMPL(sa2_256, GGML_TYPE_SA2_256, SA2_256_Q, SA2_256_G)
++GGML_SA_IMPL(sa3_256, GGML_TYPE_SA3_256, SA3_256_Q, SA3_256_G)
++GGML_SA_IMPL(sa4_256, GGML_TYPE_SA4_256, SA4_256_Q, SA4_256_G)
++GGML_SA_IMPL(sa5, GGML_TYPE_SA5, SA5_Q, SA5_G)
++GGML_SA_IMPL(sa5_128, GGML_TYPE_SA5_128, SA5_128_Q, SA5_128_G)
++GGML_SA_IMPL(sa5_256, GGML_TYPE_SA5_256, SA5_256_Q, SA5_256_G)
++GGML_SA_IMPL(sa6, GGML_TYPE_SA6, SA6_Q, SA6_G)
++GGML_SA_IMPL(sa6_128, GGML_TYPE_SA6_128, SA6_128_Q, SA6_128_G)
++GGML_SA_IMPL(sa6_256, GGML_TYPE_SA6_256, SA6_256_Q, SA6_256_G)
++
+ size_t quantize_q2_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrow, int64_t n_per_row, const float * quant_weights) {
+     if (!quant_weights) {
+         quantize_row_q2_0_ref(src, dst, (int64_t)nrow*n_per_row);
+@@ -5509,6 +5662,166 @@ bool ggml_validate_row_data(enum ggml_type type, const void * data, size_t nbyte
+             {
+                 VALIDATE_ROW_DATA_D_F16_IMPL(block_q2_0, data, nb);
+             } break;
++        case GGML_TYPE_SA2:
++            {
++                const block_sa2 * q = (const block_sa2 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA3:
++            {
++                const block_sa3 * q = (const block_sa3 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA4:
++            {
++                const block_sa4 * q = (const block_sa4 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA2S:
++            {
++                const block_sa2s * q = (const block_sa2s *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA2_128:
++            {
++                const block_sa2_128 * q = (const block_sa2_128 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA3_128:
++            {
++                const block_sa3_128 * q = (const block_sa3_128 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA4_128:
++            {
++                const block_sa4_128 * q = (const block_sa4_128 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA2_256:
++            {
++                const block_sa2_256 * q = (const block_sa2_256 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA3_256:
++            {
++                const block_sa3_256 * q = (const block_sa3_256 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA4_256:
++            {
++                const block_sa4_256 * q = (const block_sa4_256 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA5:
++            {
++                const block_sa5 * q = (const block_sa5 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA5_128:
++            {
++                const block_sa5_128 * q = (const block_sa5_128 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA5_256:
++            {
++                const block_sa5_256 * q = (const block_sa5_256 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA6:
++            {
++                const block_sa6 * q = (const block_sa6 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA6_128:
++            {
++                const block_sa6_128 * q = (const block_sa6_128 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
++        case GGML_TYPE_SA6_256:
++            {
++                const block_sa6_256 * q = (const block_sa6_256 *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    ggml_half d; memcpy(&d, q[i].d, sizeof(d));
++                    if (!validate_fp16(d, i)) {
++                        return false;
++                    }
++                }
++            } break;
+         case GGML_TYPE_Q4_0:
+             {
+                 VALIDATE_ROW_DATA_D_F16_IMPL(block_q4_0, data, nb);
+diff --git a/ggml/src/ggml-quants.h b/ggml/src/ggml-quants.h
+index 75188f1..5bc3f47 100644
+--- a/ggml/src/ggml-quants.h
++++ b/ggml/src/ggml-quants.h
+@@ -96,6 +96,54 @@ GGML_API size_t quantize_q5_K(const float * GGML_RESTRICT src, void * GGML_RESTR
+ GGML_API size_t quantize_q6_K(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q1_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q2_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API void quantize_row_sa2_ref(const float * GGML_RESTRICT x, block_sa2 * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa2(const block_sa2 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API size_t quantize_sa2(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API void quantize_row_sa3_ref(const float * GGML_RESTRICT x, block_sa3 * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa3(const block_sa3 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API size_t quantize_sa3(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API void quantize_row_sa4_ref(const float * GGML_RESTRICT x, block_sa4 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa2s_ref(const float * GGML_RESTRICT x, block_sa2s * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa2_128_ref(const float * GGML_RESTRICT x, block_sa2_128 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa3_128_ref(const float * GGML_RESTRICT x, block_sa3_128 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa4_128_ref(const float * GGML_RESTRICT x, block_sa4_128 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa2_256_ref(const float * GGML_RESTRICT x, block_sa2_256 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa3_256_ref(const float * GGML_RESTRICT x, block_sa3_256 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa4_256_ref(const float * GGML_RESTRICT x, block_sa4_256 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa5_ref(const float * GGML_RESTRICT x, block_sa5 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa5_128_ref(const float * GGML_RESTRICT x, block_sa5_128 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa5_256_ref(const float * GGML_RESTRICT x, block_sa5_256 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa6_ref(const float * GGML_RESTRICT x, block_sa6 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa6_128_ref(const float * GGML_RESTRICT x, block_sa6_128 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_sa6_256_ref(const float * GGML_RESTRICT x, block_sa6_256 * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa4(const block_sa4 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa2s(const block_sa2s * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa2_128(const block_sa2_128 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa3_128(const block_sa3_128 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa4_128(const block_sa4_128 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa2_256(const block_sa2_256 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa3_256(const block_sa3_256 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa4_256(const block_sa4_256 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa5(const block_sa5 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa5_128(const block_sa5_128 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa5_256(const block_sa5_256 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa6(const block_sa6 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa6_128(const block_sa6_128 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_sa6_256(const block_sa6_256 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API size_t quantize_sa4(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa2s(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa2_128(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa3_128(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa4_128(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa2_256(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa3_256(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa4_256(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa5(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa5_128(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa5_256(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa6(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa6_128(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_sa6_256(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q4_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q4_1(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q5_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index 882cdf4..e380045 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -690,6 +690,134 @@ static const struct ggml_type_traits type_traits[GGML_TYPE_COUNT] = {
+         .to_float                 = (ggml_to_float_t) dequantize_row_q2_0,
+         .from_float_ref           = (ggml_from_float_t) quantize_row_q2_0_ref,
+     },
++    [GGML_TYPE_SA2] = {
++        .type_name                = "sa2",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa2),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa2,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa2_ref,
++    },
++    [GGML_TYPE_SA3] = {
++        .type_name                = "sa3",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa3),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa3,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa3_ref,
++    },
++    [GGML_TYPE_SA4] = {
++        .type_name                = "sa4",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa4),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa4,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa4_ref,
++    },
++    [GGML_TYPE_SA2S] = {
++        .type_name                = "sa2s",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa2s),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa2s,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa2s_ref,
++    },
++    [GGML_TYPE_SA2_128] = {
++        .type_name                = "sa2_128",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa2_128),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa2_128,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa2_128_ref,
++    },
++    [GGML_TYPE_SA3_128] = {
++        .type_name                = "sa3_128",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa3_128),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa3_128,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa3_128_ref,
++    },
++    [GGML_TYPE_SA4_128] = {
++        .type_name                = "sa4_128",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa4_128),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa4_128,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa4_128_ref,
++    },
++    [GGML_TYPE_SA2_256] = {
++        .type_name                = "sa2_256",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa2_256),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa2_256,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa2_256_ref,
++    },
++    [GGML_TYPE_SA3_256] = {
++        .type_name                = "sa3_256",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa3_256),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa3_256,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa3_256_ref,
++    },
++    [GGML_TYPE_SA4_256] = {
++        .type_name                = "sa4_256",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa4_256),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa4_256,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa4_256_ref,
++    },
++    [GGML_TYPE_SA5] = {
++        .type_name                = "sa5",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa5),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa5,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa5_ref,
++    },
++    [GGML_TYPE_SA5_128] = {
++        .type_name                = "sa5_128",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa5_128),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa5_128,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa5_128_ref,
++    },
++    [GGML_TYPE_SA5_256] = {
++        .type_name                = "sa5_256",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa5_256),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa5_256,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa5_256_ref,
++    },
++    [GGML_TYPE_SA6] = {
++        .type_name                = "sa6",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa6),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa6,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa6_ref,
++    },
++    [GGML_TYPE_SA6_128] = {
++        .type_name                = "sa6_128",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa6_128),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa6_128,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa6_128_ref,
++    },
++    [GGML_TYPE_SA6_256] = {
++        .type_name                = "sa6_256",
++        .blck_size                = QK_SA,
++        .type_size                = sizeof(block_sa6_256),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_sa6_256,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_sa6_256_ref,
++    },
+     [GGML_TYPE_Q4_0] = {
+         .type_name                = "q4_0",
+         .blck_size                = QK4_0,
+@@ -8092,6 +8220,22 @@ size_t ggml_quantize_chunk(
+     switch (type) {
+         case GGML_TYPE_Q1_0:    result = quantize_q1_0   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_Q2_0:    result = quantize_q2_0   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA2:     result = quantize_sa2    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA3:     result = quantize_sa3    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA4:     result = quantize_sa4    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA2S:     result = quantize_sa2s    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA2_128:     result = quantize_sa2_128    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA3_128:     result = quantize_sa3_128    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA4_128:     result = quantize_sa4_128    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA2_256:     result = quantize_sa2_256    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA3_256:     result = quantize_sa3_256    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA4_256:     result = quantize_sa4_256    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA5:     result = quantize_sa5    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA5_128:     result = quantize_sa5_128    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA5_256:     result = quantize_sa5_256    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA6:     result = quantize_sa6    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA6_128:     result = quantize_sa6_128    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_SA6_256:     result = quantize_sa6_256    (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_Q4_0:    result = quantize_q4_0   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_Q4_1:    result = quantize_q4_1   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_Q5_0:    result = quantize_q5_0   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+diff --git a/gguf-py/gguf/constants.py b/gguf-py/gguf/constants.py
+index c003ed2..e66412d 100644
+--- a/gguf-py/gguf/constants.py
++++ b/gguf-py/gguf/constants.py
+@@ -5971,6 +5971,22 @@ class GGMLQuantizationType(IntEnum):
+     NVFP4   = 40
+     Q1_0    = 41
+     Q2_0    = 42
++    SA2     = 43
++    SA3     = 44
++    SA4     = 45
++    SA2S    = 46
++    SA2_128 = 47
++    SA3_128 = 48
++    SA4_128 = 49
++    SA2_256 = 50
++    SA3_256 = 51
++    SA4_256 = 52
++    SA5     = 53
++    SA5_128 = 54
++    SA5_256 = 55
++    SA6     = 56
++    SA6_128 = 57
++    SA6_256 = 58
+ 
+ 
+ class ExpertGatingFuncType(IntEnum):
+@@ -6181,6 +6197,22 @@ GGML_QUANT_SIZES: dict[GGMLQuantizationType, tuple[int, int]] = {
+     GGMLQuantizationType.NVFP4:   (64, 4 + 32),
+     GGMLQuantizationType.Q1_0:    (128, 2 + 16),
+     GGMLQuantizationType.Q2_0:    (64, 2 + 16),
++    GGMLQuantizationType.SA2:     (256, 2*32 + 2*4 + 2),
++    GGMLQuantizationType.SA3:     (256, 3*32 + 3*4 + 2),
++    GGMLQuantizationType.SA4:     (256, 4*32 + 4*4 + 2),
++    GGMLQuantizationType.SA2S:    (256, 2*32 + 2*8 + 2),
++    GGMLQuantizationType.SA2_128: (256, 2*32 + 2*2 + 2),
++    GGMLQuantizationType.SA3_128: (256, 3*32 + 3*2 + 2),
++    GGMLQuantizationType.SA4_128: (256, 4*32 + 4*2 + 2),
++    GGMLQuantizationType.SA2_256: (256, 2*32 + 2*1 + 2),
++    GGMLQuantizationType.SA3_256: (256, 3*32 + 3*1 + 2),
++    GGMLQuantizationType.SA4_256: (256, 4*32 + 4*1 + 2),
++    GGMLQuantizationType.SA5: (256, 5*32 + 5*4 + 2),
++    GGMLQuantizationType.SA5_128: (256, 5*32 + 5*2 + 2),
++    GGMLQuantizationType.SA5_256: (256, 5*32 + 5*1 + 2),
++    GGMLQuantizationType.SA6: (256, 6*32 + 6*4 + 2),
++    GGMLQuantizationType.SA6_128: (256, 6*32 + 6*2 + 2),
++    GGMLQuantizationType.SA6_256: (256, 6*32 + 6*1 + 2),
+ }
+ 
+ 
+diff --git a/gguf-py/gguf/quants.py b/gguf-py/gguf/quants.py
+index 80966b6..00ea02d 100644
+--- a/gguf-py/gguf/quants.py
++++ b/gguf-py/gguf/quants.py
+@@ -1376,3 +1376,135 @@ class IQ4_XS(__Quant, qtype=GGMLQuantizationType.IQ4_XS):
+         qs = np.take_along_axis(kvalues, qs, axis=-1).astype(np.float32).reshape((n_blocks, -1, 32))
+ 
+         return (dl * qs).reshape((n_blocks, -1))
++
++
++class _SABase:
++    """ShiftAdd / BCQ super-block of 256: qs[Q*32] bit-planes | a[Q*256/G] uint8 alpha codes | d fp16.
++    w_j = sum_p d*a[g*Q+p] * (+1 if bit_{p,j} else -1),  g = j // G."""
++    Q = 3
++    G = 64
++
++    @classmethod
++    def pack(cls, bits: np.ndarray, codes: np.ndarray, d: np.ndarray) -> np.ndarray:
++        """bits [n, Q, 256] in {0,1}; codes [n, 256//G, Q] uint8; d [n] float -> raw blocks [n, type_size]"""
++        n = bits.shape[0]
++        qs = np.packbits(bits.astype(np.uint8).reshape(n, cls.Q, 32, 8), axis=-1, bitorder="little").reshape(n, -1)
++        a = codes.astype(np.uint8).reshape(n, -1)
++        dd = d.astype(np.float16).reshape(n, 1).view(np.uint8)
++        return np.concatenate([qs, a, dd], axis=-1)
++
++    @classmethod
++    def quantize_blocks(cls, blocks: np.ndarray) -> np.ndarray:
++        # greedy BCQ per group (reference only; real models are exported from the calibrated quantizer)
++        n = blocks.shape[0]
++        Q, G = cls.Q, cls.G
++        w = blocks.reshape(n, 256 // G, G).astype(np.float32)
++        r = w.copy()
++        alphas = []
++        for _ in range(Q):
++            a = np.abs(r).mean(-1, keepdims=True)
++            r = r - a * np.where(r >= 0, 1.0, -1.0)
++            alphas.append(a[..., 0])
++        alpha = np.stack(alphas, -1)  # [n, ng, Q]
++        d = alpha.reshape(n, -1).max(-1) / 255.0
++        d = d.astype(np.float16).astype(np.float32)
++        with np.errstate(divide="ignore", invalid="ignore"):
++            codes = np.clip(np.round(np.where(d[:, None, None] > 0, alpha / d[:, None, None], 0)), 0, 255)
++        aq = codes * d[:, None, None]
++        signs = np.array([[1 if (c >> p) & 1 else -1 for p in range(Q)] for c in range(2 ** Q)], dtype=np.float32)
++        levels = aq @ signs.T  # [n, ng, 2^Q]
++        idx = np.abs(w[..., None] - levels[:, :, None, :]).argmin(-1)  # [n, ng, G]
++        bits = ((idx.reshape(n, 256)[:, None, :] >> np.arange(Q)[None, :, None]) & 1)
++        return cls.pack(bits, codes, d)
++
++    @classmethod
++    def dequantize_blocks(cls, blocks: np.ndarray) -> np.ndarray:
++        n = blocks.shape[0]
++        Q, G = cls.Q, cls.G
++        qs, a, d = np.hsplit(blocks, [Q * 32, Q * 32 + Q * (256 // G)])
++        d = d.view(np.float16).astype(np.float32)  # [n, 1]
++        bits = np.unpackbits(qs.reshape(n, Q, 32), axis=-1, bitorder="little").astype(np.float32)  # [n, Q, 256]
++        s = bits * 2 - 1
++        alpha = a.reshape(n, 256 // G, Q).astype(np.float32) * d[:, :, None]
++        alpha = np.repeat(alpha, G, axis=1)  # [n, 256, Q]
++        return (s.transpose(0, 2, 1) * alpha).sum(-1)
++
++
++class SA2(_SABase, __Quant, qtype=GGMLQuantizationType.SA2):
++    Q = 2
++    G = 64
++
++
++class SA3(_SABase, __Quant, qtype=GGMLQuantizationType.SA3):
++    Q = 3
++    G = 64
++
++
++class SA4(_SABase, __Quant, qtype=GGMLQuantizationType.SA4):
++    Q = 4
++    G = 64
++
++
++class SA2S(_SABase, __Quant, qtype=GGMLQuantizationType.SA2S):
++    Q = 2
++    G = 32
++
++
++class SA2_128(_SABase, __Quant, qtype=GGMLQuantizationType.SA2_128):
++    Q = 2
++    G = 128
++
++
++class SA3_128(_SABase, __Quant, qtype=GGMLQuantizationType.SA3_128):
++    Q = 3
++    G = 128
++
++
++class SA4_128(_SABase, __Quant, qtype=GGMLQuantizationType.SA4_128):
++    Q = 4
++    G = 128
++
++
++class SA2_256(_SABase, __Quant, qtype=GGMLQuantizationType.SA2_256):
++    Q = 2
++    G = 256
++
++
++class SA3_256(_SABase, __Quant, qtype=GGMLQuantizationType.SA3_256):
++    Q = 3
++    G = 256
++
++
++class SA4_256(_SABase, __Quant, qtype=GGMLQuantizationType.SA4_256):
++    Q = 4
++    G = 256
++
++
++class SA5(_SABase, __Quant, qtype=GGMLQuantizationType.SA5):
++    Q = 5
++    G = 64
++
++
++class SA5_128(_SABase, __Quant, qtype=GGMLQuantizationType.SA5_128):
++    Q = 5
++    G = 128
++
++
++class SA5_256(_SABase, __Quant, qtype=GGMLQuantizationType.SA5_256):
++    Q = 5
++    G = 256
++
++
++class SA6(_SABase, __Quant, qtype=GGMLQuantizationType.SA6):
++    Q = 6
++    G = 64
++
++
++class SA6_128(_SABase, __Quant, qtype=GGMLQuantizationType.SA6_128):
++    Q = 6
++    G = 128
++
++
++class SA6_256(_SABase, __Quant, qtype=GGMLQuantizationType.SA6_256):
++    Q = 6
++    G = 256
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index 4e3c694..a5685dd 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -9543,6 +9543,9 @@ static const ggml_type all_types[] = {
+     GGML_TYPE_IQ2_XXS, GGML_TYPE_IQ2_XS, GGML_TYPE_IQ2_S,
+     GGML_TYPE_IQ3_XXS, GGML_TYPE_IQ1_S, GGML_TYPE_IQ1_M,
+     GGML_TYPE_IQ4_NL, GGML_TYPE_IQ3_S, GGML_TYPE_IQ4_XS,
++    GGML_TYPE_SA2, GGML_TYPE_SA3, GGML_TYPE_SA4, GGML_TYPE_SA2S,
++    GGML_TYPE_SA2_128, GGML_TYPE_SA3_128, GGML_TYPE_SA4_128, GGML_TYPE_SA2_256, GGML_TYPE_SA3_256, GGML_TYPE_SA4_256,
++    GGML_TYPE_SA5, GGML_TYPE_SA5_128, GGML_TYPE_SA5_256, GGML_TYPE_SA6, GGML_TYPE_SA6_128, GGML_TYPE_SA6_256,
+ };
+ 
+ static const ggml_type base_types[] = {
+@@ -9572,6 +9575,9 @@ static const ggml_type other_types[] = {
+     GGML_TYPE_IQ3_XXS, GGML_TYPE_IQ1_S, GGML_TYPE_IQ1_M,
+     GGML_TYPE_IQ4_NL, GGML_TYPE_IQ3_S, GGML_TYPE_IQ4_XS,
+     GGML_TYPE_BF16,
++    GGML_TYPE_SA2, GGML_TYPE_SA3, GGML_TYPE_SA4, GGML_TYPE_SA2S,
++    GGML_TYPE_SA2_128, GGML_TYPE_SA3_128, GGML_TYPE_SA4_128, GGML_TYPE_SA2_256, GGML_TYPE_SA3_256, GGML_TYPE_SA4_256,
++    GGML_TYPE_SA5, GGML_TYPE_SA5_128, GGML_TYPE_SA5_256, GGML_TYPE_SA6, GGML_TYPE_SA6_128, GGML_TYPE_SA6_256,
+ };
+ 
+ #ifdef _MSC_VER
+@@ -10691,7 +10697,10 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+                                  GGML_TYPE_Q8_0, GGML_TYPE_Q1_0, GGML_TYPE_Q2_0, GGML_TYPE_MXFP4, GGML_TYPE_Q2_K, GGML_TYPE_Q3_K,
+                                  GGML_TYPE_Q4_K, GGML_TYPE_Q5_K, GGML_TYPE_Q6_K, GGML_TYPE_TQ2_0,
+                                  GGML_TYPE_IQ2_XXS, GGML_TYPE_IQ2_XS, GGML_TYPE_IQ2_S, GGML_TYPE_IQ3_XXS, GGML_TYPE_IQ3_S,
+-                                 GGML_TYPE_IQ1_S, GGML_TYPE_IQ1_M, GGML_TYPE_IQ4_NL, GGML_TYPE_IQ4_XS}) {
++                                 GGML_TYPE_IQ1_S, GGML_TYPE_IQ1_M, GGML_TYPE_IQ4_NL, GGML_TYPE_IQ4_XS,
++                                 GGML_TYPE_SA2, GGML_TYPE_SA3, GGML_TYPE_SA4, GGML_TYPE_SA2S,
++    GGML_TYPE_SA2_128, GGML_TYPE_SA3_128, GGML_TYPE_SA4_128, GGML_TYPE_SA2_256, GGML_TYPE_SA3_256, GGML_TYPE_SA4_256,
++    GGML_TYPE_SA5, GGML_TYPE_SA5_128, GGML_TYPE_SA5_256, GGML_TYPE_SA6, GGML_TYPE_SA6_128, GGML_TYPE_SA6_256}) {
+             test_cases.emplace_back(new test_mul_mat(type_a, GGML_TYPE_F32, 48,  n, 2560, {1, 1}, {1, 1}));
+             test_cases.emplace_back(new test_mul_mat(type_a, GGML_TYPE_F32, 1000, n, 1024, {1, 1}, {1, 1}));
+             test_cases.emplace_back(new test_mul_mat(type_a, GGML_TYPE_F32, 3000, n, 512,  {1, 1}, {1, 1}));
+@@ -11937,6 +11946,21 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+ static std::vector<std::unique_ptr<test_case>> make_test_cases_perf() {
+     std::vector<std::unique_ptr<test_case>> test_cases;
+ 
++    // ShiftAdd/BCQ decode GEMV vs k-quants at Qwen3.5-9B shapes (SA_PERF_ONLY=1 to run just these)
++    for (ggml_type type : {GGML_TYPE_SA2, GGML_TYPE_SA3, GGML_TYPE_SA4, GGML_TYPE_SA2S,
++    GGML_TYPE_SA2_128, GGML_TYPE_SA3_128, GGML_TYPE_SA4_128, GGML_TYPE_SA2_256, GGML_TYPE_SA3_256, GGML_TYPE_SA4_256,
++    GGML_TYPE_SA5, GGML_TYPE_SA5_128, GGML_TYPE_SA5_256, GGML_TYPE_SA6, GGML_TYPE_SA6_128, GGML_TYPE_SA6_256, GGML_TYPE_Q2_K, GGML_TYPE_Q3_K, GGML_TYPE_Q4_K,
++                           GGML_TYPE_Q6_K, GGML_TYPE_IQ3_XXS, GGML_TYPE_IQ3_S, GGML_TYPE_IQ2_S, GGML_TYPE_Q4_0, GGML_TYPE_Q5_K}) {
++        for (auto [m, k] : std::vector<std::pair<int64_t, int64_t>>{{4096, 4096}, {12288, 4096}, {4096, 12288}}) {
++            for (int64_t n : {1, 4, 512}) {
++                test_cases.emplace_back(new test_mul_mat(type, GGML_TYPE_F32, m, n, k, {1, 1}, {1, 1}));
++            }
++        }
++    }
++    if (getenv("SA_PERF_ONLY")) {
++        return test_cases;
++    }
++
+     // SWIGLU at a 27B-class FFN width, fused [gate|up] vs split operands
+     // note: same bytes either way, so a backend that indexes them differently shows it here
+     for (ggml_type type : {GGML_TYPE_F16, GGML_TYPE_F32, GGML_TYPE_BF16}) {

@@ -1,0 +1,13 @@
+# Versions used for the reported results (Python 3.12, CUDA 12.6).
+# Install torch first for your CUDA, e.g.:  pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu126
+torch==2.14.1
+transformers==5.20.2
+accelerate==1.15.0
+datasets==5.1.0
+safetensors==0.8.0
+huggingface_hub==2.2.0
+flash-linear-attention==0.5.2
+numpy==2.5.4
+matplotlib==3.11.2
+requests==2.34.2
+sentencepiece==0.2.2
