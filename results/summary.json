@@ -3,6 +3,7 @@
  "rows": [
   {
    "model": "UnslothAI/Qwen-3.5-9B-Q8_0",
+   "short": "Q8_0",
    "id": "Q8_0",
    "ours": false,
    "file_gb": 9.786061152,
@@ -19,11 +20,11 @@
    "mtp_decode_tok_s": 169.4360246164986,
    "mtp_accept": 0.6368821292775665,
    "gpu_resident_gib": 10.54296875,
-   "ablation": false,
-   "short": "Q8_0"
+   "ablation": false
   },
   {
    "model": "UnslothAI/Qwen-3.5-9B-Q4_K_M",
+   "short": "Q4_K_M",
    "id": "Q4_K_M",
    "ours": false,
    "file_gb": 5.868826976,
@@ -40,11 +41,11 @@
    "mtp_decode_tok_s": 158.17805511877734,
    "mtp_accept": 0.6283741368487131,
    "gpu_resident_gib": 7.466796875,
-   "ablation": false,
-   "short": "Q4_K_M"
+   "ablation": false
   },
   {
    "model": "UnslothAI/Qwen-3.5-9B-UD-Q3_K_XL",
+   "short": "UD-Q3_K_XL",
    "id": "UD-Q3_K_XL",
    "ours": false,
    "file_gb": 5.241319776,
@@ -61,32 +62,11 @@
    "mtp_decode_tok_s": 140.98833727040935,
    "mtp_accept": 0.584883023395321,
    "gpu_resident_gib": 6.912109375,
-   "ablation": false,
-   "short": "UD-Q3_K_XL"
-  },
-  {
-   "model": "ShiftAddQwen-3.5-9B-4.4bits",
-   "id": "v2g4.4_ft",
-   "ours": true,
-   "file_gb": 5.107462592,
-   "mix_kld": 0.03094,
-   "wiki_kld": 0.036485,
-   "wiki_ppl": 7.252892,
-   "tasks_public4": 77.1,
-   "gsm8k": 92.4,
-   "mmlu_pro": 50.6,
-   "humaneval": 84.1,
-   "mgsm": 81.2,
-   "decode_tok_s": 134.899334,
-   "prefill_tok_s": 5536.342924,
-   "mtp_decode_tok_s": 188.90869940020926,
-   "mtp_accept": 0.678335535006605,
-   "gpu_resident_gib": 6.990234375,
-   "ablation": false,
-   "short": "4.4 bits"
+   "ablation": false
   },
   {
    "model": "UnslothAI/Qwen-3.5-9B-Q3_K_M",
+   "short": "Q3_K_M",
    "id": "Q3_K_M",
    "ours": false,
    "file_gb": 4.834783584,
@@ -103,11 +83,11 @@
    "mtp_decode_tok_s": 140.73635643664917,
    "mtp_accept": 0.6041666666666666,
    "gpu_resident_gib": 6.66015625,
-   "ablation": false,
-   "short": "Q3_K_M"
+   "ablation": false
   },
   {
    "model": "ShiftAddQwen-3.5-9B-4.0bits",
+   "short": "4.0 bits",
    "id": "v2g4.0_ft",
    "ours": true,
    "file_gb": 4.76162912,
@@ -124,11 +104,11 @@
    "mtp_decode_tok_s": 171.5262157241158,
    "mtp_accept": 0.6514469453376206,
    "gpu_resident_gib": 6.66796875,
-   "ablation": false,
-   "short": "4.0 bits"
+   "ablation": false
   },
   {
    "model": "UnslothAI/Qwen-3.5-9B-UD-Q2_K_XL",
+   "short": "UD-Q2_K_XL",
    "id": "UD-Q2_K_XL",
    "ours": false,
    "file_gb": 4.440797536,
@@ -145,11 +125,11 @@
    "mtp_decode_tok_s": 140.11729882492702,
    "mtp_accept": 0.5718509757539917,
    "gpu_resident_gib": 6.19140625,
-   "ablation": false,
-   "short": "UD-Q2_K_XL"
+   "ablation": false
   },
   {
    "model": "ShiftAddQwen-3.5-9B-3.6bits",
+   "short": "3.6 bits",
    "id": "v2g3.6_ft",
    "ours": true,
    "file_gb": 4.413895104,
@@ -166,11 +146,11 @@
    "mtp_decode_tok_s": 173.55251725191388,
    "mtp_accept": 0.644955300127714,
    "gpu_resident_gib": 6.345703125,
-   "ablation": false,
-   "short": "3.6 bits"
+   "ablation": false
   },
   {
    "model": "UnslothAI/Qwen-3.5-9B-UD-IQ3_XXS",
+   "short": "UD-IQ3_XXS",
    "id": "UD-IQ3_XXS",
    "ours": false,
    "file_gb": 4.295536992,
@@ -187,11 +167,11 @@
    "mtp_decode_tok_s": 166.87970716474408,
    "mtp_accept": 0.6044090630740968,
    "gpu_resident_gib": 6.169921875,
-   "ablation": false,
-   "short": "UD-IQ3_XXS"
+   "ablation": false
   },
   {
    "model": "ShiftAddQwen-3.5-9B-3.2bits",
+   "short": "3.2 bits",
    "id": "v2g3.2_ft",
    "ours": true,
    "file_gb": 4.06924128,
@@ -208,11 +188,11 @@
    "mtp_decode_tok_s": 176.9627558104295,
    "mtp_accept": 0.6350411132194813,
    "gpu_resident_gib": 6.025390625,
-   "ablation": false,
-   "short": "3.2 bits"
+   "ablation": false
   },
   {
    "model": "UnslothAI/Qwen-3.5-9B-UD-IQ2_M",
+   "short": "UD-IQ2_M",
    "id": "UD-IQ2_M",
    "ours": false,
    "file_gb": 3.969560928,
@@ -229,11 +209,11 @@
    "mtp_decode_tok_s": 157.07030376505998,
    "mtp_accept": 0.5465517241379311,
    "gpu_resident_gib": 5.880859375,
-   "ablation": false,
-   "short": "UD-IQ2_M"
+   "ablation": false
   },
   {
    "model": "ShiftAddQwen-3.5-9B-3.0bits",
+   "short": "3.0 bits",
    "id": "v2g3.0_ft",
    "ours": true,
    "file_gb": 3.897799104,
@@ -250,11 +230,11 @@
    "mtp_decode_tok_s": 175.35993524286565,
    "mtp_accept": 0.5959902794653706,
    "gpu_resident_gib": 5.865234375,
-   "ablation": false,
-   "short": "3.0 bits"
+   "ablation": false
   },
   {
    "model": "ShiftAddQwen-3.5-9B-2.6bits",
+   "short": "2.6 bits",
    "id": "v2g2.6_ft",
    "ours": true,
    "file_gb": 3.55232608,
@@ -271,71 +251,7 @@
    "mtp_decode_tok_s": 180.8919421829527,
    "mtp_accept": 0.6134817563388992,
    "gpu_resident_gib": 5.54296875,
-   "ablation": false,
-   "short": "2.6 bits"
-  },
-  {
-   "model": "ShiftAddQwen-ablation-sa3_g64_e3o5",
-   "id": "sa3_g64_e3o5",
-   "ours": false,
-   "file_gb": 4.276138432,
-   "mix_kld": 0.16246,
-   "wiki_kld": 0.107807,
-   "wiki_ppl": 7.692591,
-   "tasks_public4": null,
-   "gsm8k": null,
-   "mmlu_pro": null,
-   "humaneval": null,
-   "mgsm": null,
-   "decode_tok_s": 147.810797,
-   "prefill_tok_s": 4921.4046,
-   "mtp_decode_tok_s": 178.42640356578113,
-   "mtp_accept": 0.6414012738853503,
-   "gpu_resident_gib": 6.216796875,
-   "ablation": true,
-   "short": "sa3_g64_e3o5"
-  },
-  {
-   "model": "ShiftAddQwen-ablation-k3.44_ft",
-   "id": "k3.44_ft",
-   "ours": false,
-   "file_gb": 4.27141984,
-   "mix_kld": 0.132293,
-   "wiki_kld": 0.085962,
-   "wiki_ppl": 7.552358,
-   "tasks_public4": 73.0,
-   "gsm8k": 90.4,
-   "mmlu_pro": 47.4,
-   "humaneval": 84.1,
-   "mgsm": 70.0,
-   "decode_tok_s": null,
-   "prefill_tok_s": null,
-   "mtp_decode_tok_s": null,
-   "mtp_accept": null,
-   "gpu_resident_gib": null,
-   "ablation": true,
-   "short": "k3.44_ft"
-  },
-  {
-   "model": "ShiftAddQwen-ablation-k3.0_ft",
-   "id": "k3.0_ft",
-   "ours": false,
-   "file_gb": 3.893342656,
-   "mix_kld": 0.235735,
-   "wiki_kld": 0.13671,
-   "wiki_ppl": 7.852885,
-   "tasks_public4": 66.7,
-   "gsm8k": 82.0,
-   "mmlu_pro": 44.3,
-   "humaneval": 75.6,
-   "mgsm": 65.0,
-   "decode_tok_s": null,
-   "prefill_tok_s": null,
-   "mtp_decode_tok_s": null,
-   "mtp_accept": null,
-   "gpu_resident_gib": null,
-   "ablation": true,
-   "short": "k3.0_ft"
+   "ablation": false
   }
  ],
  "bytes_gb": {
@@ -359,13 +275,6 @@
    "output": 0.699,
    "mtp": 0.122,
    "other": 0.029
-  },
-  "ShiftAddQwen-3.5-9B-4.4bits": {
-   "linears": 3.801,
-   "token_embd": 0.437,
-   "output": 0.699,
-   "mtp": 0.151,
-   "other": 0.008
   },
   "ShiftAddQwen-3.5-9B-4.0bits": {
    "linears": 3.456,

@@ -13,7 +13,8 @@ from pathlib import Path
 import torch
 
 from . import colwise, data, gptq_bcq
-from .model import (MODEL, WORK, gguf_col_perm, SHARED_INPUT, STAGES, kld_eval, load, quant_linears, reference_logprobs,
+from .model import (MODEL, WORK, eval_windows, gguf_col_perm, reference_cache, SHARED_INPUT, STAGES, kld_eval, load,
+                    quant_linears, reference_logprobs,
                     run_until, text_layers)
 
 torch.backends.cuda.matmul.allow_tf32 = False
@@ -41,6 +42,10 @@ def main():
     ap.add_argument("--chunks", type=int, default=40)
     ap.add_argument("--no-save", action="store_true")
     ap.add_argument("--calib", type=int, default=1, help="calibration mix version (2 adds multilingual + math)")
+    ap.add_argument("--method", default="bcq", choices=["bcq", "uniform", "rtn"],
+                    help="bcq: ShiftAdd binary planes; uniform: GPTQ with asymmetric uniform groups (baseline); "
+                         "rtn: uniform round-to-nearest (baseline). Baselines are fake-quant only (no export).")
+    ap.add_argument("--eval-texts", default="wiki", help="comma list of eval texts for the PyTorch KLD: wiki,mix")
     ap.add_argument("--layout", default="row", choices=["row", "block"],
                     help="row: scales per (row, G input cols) [sa* types]; block: per (bc cols x br rows) tile [sab* types]")
     ap.add_argument("--tile", default="8x32", help="block layout default tile bcxbr (plan entries [q, bc, br] override)")
@@ -52,8 +57,9 @@ def main():
     plan = json.loads(Path(a.plan).read_text()) if a.plan else {}
 
     tok, model = load(a.model)
-    windows = data.wiki_test_windows(tok, 512, a.chunks)
-    ref = reference_logprobs(model, windows, WORK / f"data/ref_lp_{a.chunks}.pt")
+    texts = a.eval_texts.split(",")
+    evals = {t: (eval_windows(tok, t, 512, a.chunks), None) for t in texts}
+    evals = {t: (w, reference_logprobs(model, w, reference_cache(t, a.chunks))) for t, (w, _) in evals.items()}
     calib = data.calibration(tok, a.nseq, a.seqlen, version=a.calib)
     batches = list(calib.split(a.bs))
     layers = text_layers(model)
@@ -105,7 +111,11 @@ def main():
                 if cp is not None:  # quantize in llama.cpp's column order so groups match the GGUF layout
                     cp = cp.to(W.device)
                     W, H = W[:, cp], H[cp][:, cp]
-                if a.layout == "block":
+                if a.method == "uniform":
+                    res = gptq_bcq.quantize_uniform(W, H, q, G=G, percdamp=a.percdamp, act_order=a.act_order)
+                elif a.method == "rtn":
+                    res = gptq_bcq.rtn_uniform(W, H, q, G=G)
+                elif a.layout == "block":
                     res = colwise.fit_block(W, H, q, bc=bc, br=br, percdamp=a.percdamp, act_order=a.act_order)
                 else:
                     res = gptq_bcq.quantize(W, H, q=q, G=G, fmt=a.fmt, mu_on=a.mu,
@@ -116,11 +126,13 @@ def main():
                     Qw = Qw[:, cp.argsort()]
                 lin.weight.data.copy_(Qw.to(lin.weight.dtype))
                 rec = {"name": full, "bits": q, "shape": list(lin.weight.shape), "rel_err": res["err"],
-                       "sec": round(time.time() - ts, 2), "layout": a.layout,
+                       "sec": round(time.time() - ts, 2), "layout": a.layout, "method": a.method,
                        "tile": f"{bc}x{br}" if a.layout == "block" else f"G{G}"}
                 log.append(rec)
                 print(json.dumps(rec), flush=True)
-                if not a.no_save and a.layout == "block":
+                if a.method != "bcq":
+                    pass  # baselines are evaluated in PyTorch only
+                elif not a.no_save and a.layout == "block":
                     torch.save({"layout": "block", "idx": res["idx"].cpu(), "q": q, "bc": bc, "br": br,
                                 "T": res["T"].to(torch.uint8).cpu(), "d": res["d"].cpu(),
                                 "col_perm_applied": cp is not None}, out / f"{full}.pt")
@@ -134,9 +146,12 @@ def main():
             del Hs
             torch.cuda.empty_cache()
         print(f"layer {li} done, {time.time() - t0:.0f}s", flush=True)
-    res = kld_eval(model, windows, ref)
+    res = {}
+    for t, (w, ref) in evals.items():
+        r = kld_eval(model, w, ref)
+        res[t] = r
+        print("EVAL", t, json.dumps(r), flush=True)
     res["quant_sec"] = time.time() - t0
-    print("EVAL", json.dumps(res), flush=True)
     (out / "log.json").write_text(json.dumps({"layers": log, "eval": res}, indent=1))
 
 

@@ -148,8 +148,22 @@ def _uniform_levels(w, q, h=None, grid=20):
 
 
 @torch.no_grad()
-def quantize_uniform(W, H, q, G=64, blocksize=128, percdamp=0.01, hweight=True):
-    """Plain GPTQ with asymmetric uniform groups (fp16 scale+min per group) — baseline."""
+def rtn_uniform(W, H, q, G=64):
+    """Round-to-nearest with asymmetric uniform groups (fp16 scale+min per group) — baseline."""
+    W0 = W.float()
+    R, C = W0.shape
+    Lv = _uniform_levels(W0.reshape(-1, G), q)
+    k = (W0.reshape(-1, G)[..., None] - Lv[:, None, :]).abs().argmin(-1)
+    Q = torch.gather(Lv, 1, k).view(R, C)
+    Hd = H.float().clone()
+    Hd.diagonal().add_(0.01 * Hd.diagonal().mean())
+    return dict(err=rel_err(W0, Q, Hd), Q=Q)
+
+
+@torch.no_grad()
+def quantize_uniform(W, H, q, G=64, blocksize=128, percdamp=0.01, hweight=True, act_order=False):
+    """Plain GPTQ with asymmetric uniform groups (fp16 scale+min per group) — baseline.
+    act_order permutes whole groups by summed diag(H) (same group-preserving act-order as `quantize`)."""
     W = W.float().clone()
     W0 = W.clone()
     R, C = W.shape
@@ -160,6 +174,11 @@ def quantize_uniform(W, H, q, G=64, blocksize=128, percdamp=0.01, hweight=True):
     damp = percdamp * H.diagonal().mean()
     H.diagonal().add_(damp)
     hd = H.diagonal().clone()
+    perm = None
+    if act_order:
+        gperm = hd.view(-1, G).sum(-1).argsort(descending=True)
+        perm = (gperm[:, None] * G + torch.arange(G, device=W.device)[None]).flatten()
+        W, H, hd = W[:, perm], H[perm][:, perm], hd[perm]
     Hinv = robust_hinv(H, damp)
     Q = torch.zeros_like(W)
     for i1 in range(0, C, blocksize):
@@ -179,6 +198,9 @@ def quantize_uniform(W, H, q, G=64, blocksize=128, percdamp=0.01, hweight=True):
             W1[:, i:] -= err[:, None] * Hinv1[i, i:][None, :]
             Err1[:, i] = err
         W[:, i2:] -= Err1 @ Hinv[i1:i2, i2:]
+    if perm is not None:
+        Q = Q[:, perm.argsort()]
+        H = H[perm.argsort()][:, perm.argsort()]
     return dict(err=rel_err(W0, Q, H), Q=Q)
 
 

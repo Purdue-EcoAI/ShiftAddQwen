@@ -86,6 +86,22 @@ def text_logits(model, ids):
     return model.lm_head(out.last_hidden_state)
 
 
+def eval_windows(tok, text="wiki", ctx=512, chunks=40):
+    """Consecutive ctx-token windows of an evaluation text, as llama-perplexity cuts them.
+    text = 'wiki' (wikitext-2 test) or 'mix' (held-out mixed-domain text, WORK/data/mix.test.raw)."""
+    from . import data
+    if text == "wiki":
+        return data.wiki_test_windows(tok, ctx, chunks)
+    raw = (WORK / "data" / f"{text}.test.raw").read_text()
+    ids = torch.tensor(tok(raw, add_special_tokens=False)["input_ids"])
+    n = min(chunks, len(ids) // ctx)
+    return ids[: n * ctx].view(n, ctx)
+
+
+def reference_cache(text, chunks):
+    return WORK / "data" / (f"ref_lp_{chunks}.pt" if text == "wiki" else f"ref_lp_{text}_{chunks}.pt")
+
+
 @torch.no_grad()
 def reference_logprobs(model, windows, cache):
     """Store fp16 log-probs of the scored half of every window (llama-perplexity scores the 2nd half)."""
