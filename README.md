@@ -127,10 +127,11 @@ is shared by all target sizes; its four shards (`--layers 0-7`, …) can run on 
 ## Citation
 
 ```bibtex
-@article{you2024shiftaddllm,
+@inproceedings{you2024shiftaddllm,
   title={ShiftAddLLM: Accelerating Pretrained LLMs via Post-Training Multiplication-Less Reparameterization},
-  author={You, Haoran and Guo, Yipin and Fu, Yichao and Zhou, Wei and Shi, Huihong and Zhang, Xiaofan and Kundu, Souvik and Yazdanbakhsh, Amir and Lin, Yingyan},
-  journal={arXiv preprint arXiv:2406.05981},
+  author={You, Haoran and Guo, Yipin and Fu, Yichao and Zhou, Wei and Shi, Huihong and Zhang, Xiaofan and Kundu, Souvik and Yazdanbakhsh, Amir and Lin, Yingyan Celine},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
   year={2024}
+}
 }
 ```
