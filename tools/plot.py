@@ -62,7 +62,7 @@ def panel(ax, key, ylabel, title, log=False, ylim=None):
         st = style(r)
         if key == "tasks_public4" and r.get("tasks_ci"):  # bootstrap 95% CI over the task items
             ax.errorbar(r["file_gb"], r[key], yerr=[[r[key] - r["tasks_ci"][0]], [r["tasks_ci"][1] - r[key]]],
-                        fmt="none", ecolor=st["color"], elinewidth=1.4, capsize=4, alpha=0.55, zorder=1)
+                        fmt="none", ecolor=st["color"], elinewidth=1.0, capsize=0, alpha=0.22, zorder=1)
         ax.scatter(r["file_gb"], r[key], marker=st["marker"], s=st["s"], color=st["color"], zorder=st["z"],
                    edgecolors="white", linewidths=0.6)
         dx, dy = OFF[key].get(short(r), (5, 3))
