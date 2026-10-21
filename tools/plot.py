@@ -45,16 +45,16 @@ def short(r):
 OFF = {
     "mix_kld": {"4.8 bits": (8, -18), "4.4 bits": (8, 5), "2.6 bits": (10, -4), "3.0 bits": (10, 1), "3.2 bits": (-52, -16), "3.6 bits": (10, -6), "4.0 bits": (10, 5),
                 "4.4 bits": (10, -10), "UD-IQ2_M": (8, 5), "UD-Q2_K_XL": (8, 5), "UD-IQ3_XXS": (8, 5), "Q3_K_M": (8, 5),
-                "UD-Q3_K_XL": (8, 5), "Q4_K_M": (-13, 12)},
+                "UD-Q3_K_XL": (8, 5), "Q4_K_M": (0, 15)},
     "tasks_public4": {"4.8 bits": (8, -18), "4.4 bits": (-20, 10), "2.6 bits": (10, -5), "3.0 bits": (8, -16), "3.2 bits": (-21, 10), "3.6 bits": (-44, 10), "4.0 bits": (-23, 10),
                       "4.4 bits": (6, -17), "UD-IQ2_M": (8, -5), "UD-Q2_K_XL": (8, -13), "UD-IQ3_XXS": (8, -16),
-                      "Q3_K_M": (8, -16), "UD-Q3_K_XL": (-51, 10), "Q4_K_M": (-17, -21)},
+                      "Q3_K_M": (8, -16), "UD-Q3_K_XL": (-51, 10), "Q4_K_M": (0, 15)},
     "prefill_tok_s": {"2.6 bits": (8, 8), "3.0 bits": (-30, -22), "3.2 bits": (8, -24), "3.6 bits": (8, 8), "4.0 bits": (8, -22),
                       "4.4 bits": (8, 6), "UD-IQ2_M": (8, -8), "UD-Q2_K_XL": (8, -8), "UD-IQ3_XXS": (8, 6), "Q3_K_M": (8, -8),
-                      "UD-Q3_K_XL": (8, -8), "Q4_K_M": (-120, 10)},
+                      "UD-Q3_K_XL": (8, -8), "Q4_K_M": (0, 15)},
     "decode_tok_s": {"4.8 bits": (6, 10), "4.4 bits": (8, 6), "2.6 bits": (10, -4), "3.0 bits": (8, 4), "3.2 bits": (-51, -17), "3.6 bits": (8, 4), "4.0 bits": (-10, 10),
                      "4.4 bits": (8, 5), "UD-IQ2_M": (-23, 10), "UD-Q2_K_XL": (8, -13), "UD-IQ3_XXS": (8, -16),
-                     "Q3_K_M": (8, -13), "UD-Q3_K_XL": (8, -13), "Q4_K_M": (-21, 12)},
+                     "Q3_K_M": (8, -13), "UD-Q3_K_XL": (8, -13), "Q4_K_M": (0, 15)},
 }
 
 
@@ -70,7 +70,7 @@ def panel(ax, key, ylabel, title, log=False, ylim=None):
                    edgecolors="white", linewidths=0.6)
         dx, dy = OFF[key].get(short(r), (5, 3))
         ax.annotate(short(r), (r["file_gb"], r[key]), xytext=(dx, dy), textcoords="offset points",
-                    fontsize=17, color=st["color"], zorder=6)
+                    fontsize=17, color=st["color"], zorder=6, ha="center" if short(r) == "Q4_K_M" else "left")
     if log:
         ax.set_yscale("log")
         ax.set_yticks([0.02, 0.03, 0.05, 0.1, 0.2])
@@ -95,9 +95,10 @@ handles = [Line2D([], [], color=C_OURS, marker="o", lw=2.6, ms=13, label="ShiftA
            Line2D([], [], color=C_BASE, marker="*", lw=0, ms=24, label="UnslothAI/Qwen-3.5-9B-Q4_K_M (reference)"),
            Line2D([], [], color=C_K, marker="s", lw=0, ms=13, label="UnslothAI/Qwen-3.5-9B-{Q3_K_M, UD-Q*_K_XL}"),
            Line2D([], [], color=C_IQ, marker="^", lw=0, ms=14, label="UnslothAI/Qwen-3.5-9B-UD-IQ*")]
-fig.legend(handles=handles, loc="lower center", ncol=2, frameon=True, fancybox=False, edgecolor="0.3", framealpha=1.0,
+leg = fig.legend(handles=handles, loc="lower center", ncol=2, frameon=True, fancybox=False, edgecolor="black", framealpha=1.0,
            bbox_to_anchor=(0.5, -0.145), prop={"weight": "bold", "size": 25}, handletextpad=0.7, columnspacing=2.5,
            borderpad=0.9, labelspacing=0.8)
+leg.get_frame().set_linewidth(2.5)
 fig.tight_layout(w_pad=1.0, h_pad=0.6)
 (R / "docs").mkdir(exist_ok=True)
 for ext in ("png", "pdf"):
