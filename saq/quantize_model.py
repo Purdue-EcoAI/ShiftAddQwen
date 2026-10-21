@@ -130,8 +130,11 @@ def main():
                        "tile": f"{bc}x{br}" if a.layout == "block" else f"G{G}"}
                 log.append(rec)
                 print(json.dumps(rec), flush=True)
-                if a.method != "bcq":
-                    pass  # baselines are evaluated in PyTorch only
+                if a.method == "uniform" and not a.no_save:
+                    torch.save({"layout": "uniform", "idx": res["idx"].cpu(), "q": q, "G": G, "lo": res["lo"].cpu(),
+                                "scale": res["scale"].cpu(), "col_perm_applied": cp is not None}, out / f"{full}.pt")
+                elif a.method != "bcq":
+                    pass  # RTN baseline is evaluated in PyTorch only
                 elif not a.no_save and a.layout == "block":
                     torch.save({"layout": "block", "idx": res["idx"].cpu(), "q": q, "bc": bc, "br": br,
                                 "T": res["T"].to(torch.uint8).cpu(), "d": res["d"].cpu(),

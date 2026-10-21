@@ -11,6 +11,49 @@ import torch.nn.functional as F
 from . import bcq
 
 
+class UniformLinear(nn.Module):
+    """Uniform-grid baseline for distillation: w = lo[g] + scale[g] * code, codes frozen, (lo, scale) trained."""
+
+    def __init__(self, idx, lo, scale, q, G, col_perm=None):
+        super().__init__()
+        R, C = idx.shape
+        self.q, self.G = q, G
+        self.out_features, self.in_features = R, C
+        self.register_buffer("idx", idx.to(torch.uint8).contiguous(), persistent=False)
+        self.register_buffer("lo0", lo.float().clone(), persistent=False)
+        self.register_buffer("sc0", scale.float().clone(), persistent=False)
+        self.theta_lo = nn.Parameter(torch.zeros_like(self.lo0))
+        self.theta_sc = nn.Parameter(torch.zeros_like(self.sc0))
+        self.register_buffer("inv_perm", col_perm.argsort().to(idx.device) if col_perm is not None else None,
+                             persistent=False)
+        self.snap = True
+
+    def stored(self):
+        lo = self.lo0 + self.sc0 * self.theta_lo  # offsets move in units of the scale
+        sc = self.sc0 * (1 + self.theta_sc)
+        if self.snap:
+            lo = lo + (lo.half().float() - lo).detach()
+            sc = sc + (sc.half().float() - sc).detach()
+        return lo, sc
+
+    def weight(self):
+        lo, sc = self.stored()
+        R, C = self.idx.shape
+        k = self.idx.view(R, C // self.G, self.G).float()
+        W = (lo[:, :, None] + sc[:, :, None] * k).view(R, C)
+        if self.inv_perm is not None:
+            W = W[:, self.inv_perm]
+        return W
+
+    def forward(self, x):
+        return F.linear(x, self.weight().to(x.dtype))
+
+    @torch.no_grad()
+    def export(self):
+        lo, sc = self.stored()
+        return lo.half().float(), sc.half().float()
+
+
 class BlockBCQLinear(nn.Module):
     """Block-wise (bc cols x br rows) ShiftAdd linear for distillation: frozen signs, trainable table
     codes (relative) and per-(row, super-block) gains.  Forward snaps codes to u8 and d to fp16 (STE)."""

@@ -181,6 +181,9 @@ def quantize_uniform(W, H, q, G=64, blocksize=128, percdamp=0.01, hweight=True, 
         W, H, hd = W[:, perm], H[perm][:, perm], hd[perm]
     Hinv = robust_hinv(H, damp)
     Q = torch.zeros_like(W)
+    idx = torch.zeros(R, C, dtype=torch.long, device=W.device)
+    lo = torch.zeros(R, C // G, device=W.device)
+    sc = torch.zeros(R, C // G, device=W.device)
     for i1 in range(0, C, blocksize):
         i2 = min(i1 + blocksize, C)
         W1 = W[:, i1:i2].clone()
@@ -190,18 +193,23 @@ def quantize_uniform(W, H, q, G=64, blocksize=128, percdamp=0.01, hweight=True, 
             c = i1 + i
             if c % G == 0:
                 Lv = _uniform_levels(W1[:, i:i + G], q, hd[c:c + G].expand(R, G) if hweight else None)
+                lo[:, c // G], sc[:, c // G] = Lv[:, 0], Lv[:, 1] - Lv[:, 0]
             w = W1[:, i]
             k = (w[:, None] - Lv).abs().argmin(-1)
             qv = torch.gather(Lv, 1, k[:, None])[:, 0]
             Q[:, c] = qv
+            idx[:, c] = k
             err = (w - qv) / Hinv1[i, i]
             W1[:, i:] -= err[:, None] * Hinv1[i, i:][None, :]
             Err1[:, i] = err
         W[:, i2:] -= Err1 @ Hinv[i1:i2, i2:]
     if perm is not None:
-        Q = Q[:, perm.argsort()]
-        H = H[perm.argsort()][:, perm.argsort()]
-    return dict(err=rel_err(W0, Q, H), Q=Q)
+        inv = perm.argsort()
+        Q, idx = Q[:, inv], idx[:, inv]
+        gperm = inv.view(-1, G)[:, 0] // G
+        lo, sc = lo[:, gperm], sc[:, gperm]
+        H = H[inv][:, inv]
+    return dict(err=rel_err(W0, Q, H), Q=Q, idx=idx.to(torch.uint8), lo=lo, scale=sc, G=G, q=q)
 
 
 @torch.no_grad()

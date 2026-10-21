@@ -11,9 +11,9 @@ from names import display, short, is_ours
 R = Path(__file__).resolve().parents[1]
 src = Path(sys.argv[1]) if len(sys.argv) > 1 else R / "work/results/summary.json"
 mem_src = Path(sys.argv[2]) if len(sys.argv) > 2 else R / "work/results/mem_breakdown.json"
-ORDER = ['Q8_0', 'Q4_K_M', 'UD-Q3_K_XL', 'v2g4.4_ft', 'Q3_K_M', 'v2g4.0_ft', 'UD-Q2_K_XL', 'v2g3.6_ft', 'UD-IQ3_XXS',
+ORDER = ['Q8_0', 'Q4_K_M', 'v2g4.8_ft', 'UD-Q3_K_XL', 'v2g4.4q6_ft', 'v2g4.4_ft', 'Q3_K_M', 'v2g4.0_ft', 'UD-Q2_K_XL', 'v2g3.6_ft', 'UD-IQ3_XXS',
          'v2g3.2_ft', 'UD-IQ2_M', 'v2g3.0_ft', 'v2g2.6_ft']
-HIDE = {'v2g4.4_ft'}  # superseded by the re-planned high-bit points
+HIDE = {'v2g4.4_ft'}  # superseded by the re-planned v2g4.4q6_ft
 rows = {r['label']: r for r in json.load(open(src))}
 ci_path = R / "results/task_ci.json"  # bootstrap 95% CI of the task mean (tools/task_ci.py)
 ci = json.load(open(ci_path)) if ci_path.exists() else {}

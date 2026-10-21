@@ -52,5 +52,5 @@ EOF
   kill $SPID; wait $SPID 2>/dev/null || true
 }
 measure_server "" ""
-measure_server "--spec-type draft-mtp --spec-draft-n-max 3" ".mtp"
+measure_server "--spec-type draft-mtp --spec-draft-n-max 3" ".mtp" || echo "no MTP head: speculative run skipped"
 grep -E "model buffer size|KV buffer|compute buffer|RS buffer" $OUT/$LABEL.server.log | head -12 > $OUT/$LABEL.buffers.txt || true

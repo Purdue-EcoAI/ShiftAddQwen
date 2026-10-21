@@ -20,7 +20,7 @@ from torch.utils.checkpoint import checkpoint
 
 from . import data
 from .model import MODEL, WORK, gguf_col_perm, kld_eval, load, reference_logprobs, text_layers
-from .qlinear import BCQLinear, BlockBCQLinear
+from .qlinear import BCQLinear, BlockBCQLinear, UniformLinear
 
 
 @torch.no_grad()
@@ -50,7 +50,9 @@ def swap_in(model, run, gran="group"):
         parent = layers[li].get_submodule(parts[4])
         old = getattr(parent, parts[5])
         cp = gguf_col_perm(sub, old.in_features) if st.get("col_perm_applied") else None
-        if st.get("layout") == "block":
+        if st.get("layout") == "uniform":
+            m = UniformLinear(st["idx"].cuda(), st["lo"].cuda(), st["scale"].cuda(), st["q"], st["G"], cp)
+        elif st.get("layout") == "block":
             m = BlockBCQLinear(st["idx"].cuda(), st["T"].cuda(), st["d"].cuda(), st["q"], st["bc"], st["br"], cp)
         else:
             m = BCQLinear(st["idx"].cuda(), st["alpha"].cuda(), st["q"], st["G"],
@@ -186,6 +188,10 @@ def main():
         st = dict(st)
         if isinstance(m, BlockBCQLinear):
             st["T"], st["d"] = (x.cpu() for x in m.export())
+            torch.save(st, out / f"{name}.pt")
+            continue
+        if isinstance(m, UniformLinear):
+            st["lo"], st["scale"] = (x.cpu() for x in m.export())
             torch.save(st, out / f"{name}.pt")
             continue
         aq, store = m.export_alpha()
