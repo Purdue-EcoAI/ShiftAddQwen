@@ -52,31 +52,6 @@
    "ablation": false
   },
   {
-   "model": "ShiftAddQwen-3.5-9B-4.8bits",
-   "short": "4.8 bits",
-   "id": "v2g4.8_ft",
-   "ours": true,
-   "file_gb": 5.45262432,
-   "mix_kld": 0.022847,
-   "wiki_kld": 0.026067,
-   "wiki_ppl": 7.151311,
-   "tasks_public4": 77.4,
-   "tasks_ci": [
-    74.46,
-    80.54
-   ],
-   "gsm8k": 92.8,
-   "mmlu_pro": 50.3,
-   "humaneval": 86.6,
-   "mgsm": 80.0,
-   "decode_tok_s": 117.264268,
-   "prefill_tok_s": 5502.859483,
-   "mtp_decode_tok_s": 149.607011243469,
-   "mtp_accept": 0.593939393939394,
-   "gpu_resident_gib": 7.314453125,
-   "ablation": false
-  },
-  {
    "model": "UnslothAI/Qwen-3.5-9B-UD-Q3_K_XL",
    "short": "UD-Q3_K_XL",
    "id": "UD-Q3_K_XL",

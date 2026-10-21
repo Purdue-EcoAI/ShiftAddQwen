@@ -30,16 +30,14 @@ throughput) are in [docs/results.md](docs/results.md); raw numbers in `results/s
 
 **Findings.**
 1. *Memory.* ShiftAddQwen-3.5-9B-4.0bits is 19% smaller than UnslothAI/Qwen-3.5-9B-Q4_K_M (4.76 vs
-   5.87 GB) at near-equal quality (KLD 0.038 vs 0.026; tasks within noise); the 4.4-bit model is 13%
-   smaller at KLD 0.030, and the 4.8-bit model is 7% smaller with *lower* KLD than Q4_K_M (0.023).
-   ShiftAddQwen-3.5-9B-3.6bits is 25% smaller than Q4_K_M and matches UnslothAI/Qwen-3.5-9B-Q3_K_M
+   5.87 GB) at near-equal quality (KLD 0.038 vs 0.026; tasks within noise), and the 4.4-bit model is
+   13% smaller at KLD 0.030 with tasks within noise of Q4_K_M. ShiftAddQwen-3.5-9B-3.6bits is 25% smaller than Q4_K_M and matches UnslothAI/Qwen-3.5-9B-Q3_K_M
    in task accuracy at lower KLD (0.056 vs 0.067).
-2. *Fidelity frontier.* At every size from 3.9 to 5.5 GB, ShiftAddQwen has lower KLD than the UnslothAI
+2. *Fidelity frontier.* At every size from 3.9 to 5.1 GB, ShiftAddQwen has lower KLD than the UnslothAI
    quant of equal or larger size (e.g. 0.086 at 4.07 GB vs UD-IQ3_XXS 0.088 at 4.30 GB; 0.030 at
    5.10 GB vs UD-Q3_K_XL 0.036 at 5.24 GB).
-3. *Speed.* With 2–4 sign planes the kernels decode 4–20% faster than Q4_K_M and prefill ~27% faster,
-   and MTP speculative decoding keeps its acceptance rate (0.60–0.68). The 4.8-bit model uses 5-plane
-   tensors, whose mat-vec is compute-bound, and decodes 6% slower than Q4_K_M.
+3. *Speed.* The kernels decode 4–20% faster than Q4_K_M and prefill ~27% faster, and MTP speculative
+   decoding keeps its acceptance rate (0.60–0.68).
 
 **Protocol** (details in [docs/results.md](docs/results.md)). KLD/PPL: `llama-perplexity` against the
 BF16 GGUF, 512-token windows × 40, on wikitext-2 and on held-out mixed-domain text. Tasks: GSM8K,
