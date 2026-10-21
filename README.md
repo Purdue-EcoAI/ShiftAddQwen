@@ -79,13 +79,15 @@ serves.
 
 ## Run a released model
 
+Released GGUFs (Hub: [hryou1998/ShiftAddQwen-3.5-9B-GGUF](https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF)):
+`ShiftAddQwen-3.5-9B-{3.0,3.2,3.6,4.0,4.4}bits.gguf` (3.90–5.10 GB; see Table 1 for the trade-offs).
 The models use new `ggml` quant types, so they need the patched llama.cpp from this repository
 (stock llama.cpp refuses to load them). 6–8 GB of GPU memory is enough for a 32K context.
 
 ```bash
 scripts/setup_llama.sh                   # llama.cpp b11538 + patch, CUDA build (CUDA_ARCH=80 default; set yours)
-hf download hryou1998/ShiftAddQwen-3.5-9B-GGUF ShiftAddQwen-3.5-9B-4.0bits.gguf --local-dir models
-work/llama.cpp/build/bin/llama-server -m models/ShiftAddQwen-3.5-9B-4.0bits.gguf -ngl 99 -fa on -c 32768 \
+hf download hryou1998/ShiftAddQwen-3.5-9B-GGUF ShiftAddQwen-3.5-9B-4.4bits.gguf --local-dir models
+work/llama.cpp/build/bin/llama-server -m models/ShiftAddQwen-3.5-9B-4.4bits.gguf -ngl 99 -fa on -c 32768 \
     --jinja --spec-type draft-mtp --spec-draft-n-max 3      # MTP speculative decoding, as in Table 1
 ```
 
