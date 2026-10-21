@@ -8,7 +8,7 @@ set -e
 source "$(dirname "$0")/../../scripts/env.sh"
 MODEL=$1; LABEL=$2; PORT=${3:-8200}
 OUT=$SAQ_WORK/results/agentic/$LABEL; mkdir -p $OUT
-$LLAMA_BIN/llama-server -m $MODEL -ngl 99 -fa on -c 65536 -np 8 --kv-unified --jinja --reasoning-format deepseek \
+$LLAMA_BIN/llama-server -m $MODEL -ngl 99 -fa on -c 262144 -np 8 --jinja --reasoning-format deepseek \
    --host 127.0.0.1 --port $PORT --no-webui --alias default > $OUT/server.log 2>&1 &
 SPID=$!; trap "kill $SPID 2>/dev/null; wait $SPID 2>/dev/null" EXIT
 for i in $(seq 1 300); do curl -s -o /dev/null -w "%{http_code}" 127.0.0.1:$PORT/v1/models | grep -q 200 && break; sleep 1; done

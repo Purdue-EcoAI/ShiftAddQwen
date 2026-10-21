@@ -35,9 +35,19 @@ def norm_math(s):
 def ask(url, msgs, max_tokens, temp, seed, think):
     body = {"model": "default", "messages": msgs, "max_tokens": max_tokens, "temperature": temp, "top_p": 0.95,
             "seed": seed, "chat_template_kwargs": {"enable_thinking": think}}
-    r = requests.post(f"{url}/v1/chat/completions", json=body, timeout=7200).json()
-    m = r["choices"][0]["message"]
-    return (m.get("content") or ""), (m.get("reasoning_content") or ""), r.get("usage", {})
+    for attempt in range(3):
+        try:
+            r = requests.post(f"{url}/v1/chat/completions", json=body, timeout=7200).json()
+        except Exception as e:  # connection hiccup: retry
+            r = {"error": str(e)}
+        if "choices" in r:
+            m = r["choices"][0]["message"]
+            return (m.get("content") or ""), (m.get("reasoning_content") or ""), r.get("usage", {})
+        err = r.get("error", r)
+        if attempt == 2 or "context" in str(err).lower():
+            print("request failed:", str(err)[:200], flush=True)
+            return "", "", {"error": str(err)[:200]}
+        time.sleep(5)
 
 
 def items_for(task, seed):

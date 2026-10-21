@@ -49,6 +49,9 @@ OFF = {
     "tasks_public4": {"4.8 bits": (8, -18), "4.4 bits": (-20, 10), "2.6 bits": (10, -5), "3.0 bits": (8, -16), "3.2 bits": (-21, 10), "3.6 bits": (-44, 10), "4.0 bits": (-23, 10),
                       "4.4 bits": (6, -17), "UD-IQ2_M": (8, -5), "UD-Q2_K_XL": (8, -13), "UD-IQ3_XXS": (8, -16),
                       "Q3_K_M": (8, -16), "UD-Q3_K_XL": (-51, 10), "Q4_K_M": (-17, -21)},
+    "prefill_tok_s": {"2.6 bits": (8, 8), "3.0 bits": (-30, -22), "3.2 bits": (8, -24), "3.6 bits": (8, 8), "4.0 bits": (8, -22),
+                      "4.4 bits": (8, 6), "UD-IQ2_M": (8, -8), "UD-Q2_K_XL": (8, -8), "UD-IQ3_XXS": (8, 6), "Q3_K_M": (8, -8),
+                      "UD-Q3_K_XL": (8, -8), "Q4_K_M": (-120, 10)},
     "decode_tok_s": {"4.8 bits": (6, 10), "4.4 bits": (8, 6), "2.6 bits": (10, -4), "3.0 bits": (8, 4), "3.2 bits": (-51, -17), "3.6 bits": (8, 4), "4.0 bits": (-10, 10),
                      "4.4 bits": (8, 5), "UD-IQ2_M": (-23, 10), "UD-Q2_K_XL": (8, -13), "UD-IQ3_XXS": (8, -16),
                      "Q3_K_M": (8, -13), "UD-Q3_K_XL": (8, -13), "Q4_K_M": (-21, 12)},
@@ -82,17 +85,20 @@ def panel(ax, key, ylabel, title, log=False, ylim=None):
     ax.grid(True, which="major", lw=0.4, alpha=0.35)
 
 
-fig, axes = plt.subplots(1, 3, figsize=(24, 7.6))
+fig, axes = plt.subplots(2, 2, figsize=(17, 14))
+axes = axes.flatten()
 panel(axes[0], "mix_kld", r"KLD to BF16 $\downarrow$ (log)", "(a) Output fidelity", log=True, ylim=(0.02, 0.22))
 panel(axes[1], "tasks_public4", r"Task accuracy (%) $\uparrow$", "(b) Downstream tasks (95% CI)", ylim=(63, 83))
-panel(axes[2], "decode_tok_s", r"Decode throughput (tok/s) $\uparrow$", "(c) Speed (A100, CUDA)", ylim=(105, 156))
+panel(axes[2], "decode_tok_s", r"Decode throughput (tok/s) $\uparrow$", "(c) Decode speed (A100, CUDA)", ylim=(105, 156))
+panel(axes[3], "prefill_tok_s", r"Prefill throughput (tok/s) $\uparrow$", "(d) Prefill speed (A100, CUDA)", ylim=(3100, 5800))
 handles = [Line2D([], [], color=C_OURS, marker="o", lw=2.6, ms=13, label="ShiftAddQwen-3.5-9B-$x$bits (ours)"),
            Line2D([], [], color=C_BASE, marker="*", lw=0, ms=24, label="UnslothAI/Qwen-3.5-9B-Q4_K_M (reference)"),
            Line2D([], [], color=C_K, marker="s", lw=0, ms=13, label="UnslothAI/Qwen-3.5-9B-{Q3_K_M, UD-Q*_K_XL}"),
            Line2D([], [], color=C_IQ, marker="^", lw=0, ms=14, label="UnslothAI/Qwen-3.5-9B-UD-IQ*")]
-fig.legend(handles=handles, loc="lower center", ncol=2, frameon=False, bbox_to_anchor=(0.5, -0.19), fontsize=22, prop={"weight": "bold", "size": 22},
-           handletextpad=0.6, columnspacing=3.0)
-fig.tight_layout(w_pad=0.6)
+fig.legend(handles=handles, loc="lower center", ncol=2, frameon=True, fancybox=False, edgecolor="0.3", framealpha=1.0,
+           bbox_to_anchor=(0.5, -0.145), prop={"weight": "bold", "size": 25}, handletextpad=0.7, columnspacing=2.5,
+           borderpad=0.9, labelspacing=0.8)
+fig.tight_layout(w_pad=1.0, h_pad=0.6)
 (R / "docs").mkdir(exist_ok=True)
 for ext in ("png", "pdf"):
     fig.savefig(R / "docs" / f"frontier.{ext}", dpi=300)

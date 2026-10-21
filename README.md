@@ -23,7 +23,7 @@ recipes (`UD-Q3_K_XL`, `UD-IQ3_XXS`, `UD-Q2_K_XL`, `UD-IQ2_M`). `Q4_K_M` (5.87 G
 
 *Figure 1. ShiftAddQwen-3.5-9B-*x*bits (*x* = average bits per decoder weight) against the
 UnslothAI/Qwen-3.5-9B-* GGUF quants. (a) KL divergence to the BF16 model on held-out mixed-domain text; (b) mean accuracy on
-GSM8K, MMLU-Pro, HumanEval and MGSM, with bootstrap 95% confidence intervals over the 844 items; (c) decode throughput (A100, CUDA). Vector: [docs/frontier.pdf](docs/frontier.pdf).*
+GSM8K, MMLU-Pro, HumanEval and MGSM, with bootstrap 95% confidence intervals over the 844 items; (c) decode and (d) prefill throughput (A100, CUDA; the batched path dequantizes to fp16 and uses cuBLAS). Vector: [docs/frontier.pdf](docs/frontier.pdf).*
 
 Full measurements for every model in Figure 1 (KLD, PPL, per-task accuracy, prefill/decode/MTP
 throughput) are in [docs/results.md](docs/results.md); raw numbers in `results/summary.json`.
@@ -36,8 +36,8 @@ throughput) are in [docs/results.md](docs/results.md); raw numbers in `results/s
 2. *Fidelity frontier.* At every size from 3.9 to 5.1 GB, ShiftAddQwen has lower KLD than the UnslothAI
    quant of equal or larger size (e.g. 0.086 at 4.07 GB vs UD-IQ3_XXS 0.088 at 4.30 GB; 0.030 at
    5.10 GB vs UD-Q3_K_XL 0.036 at 5.24 GB).
-3. *Speed.* The kernels decode 4–20% faster than Q4_K_M and prefill ~27% faster, and MTP speculative
-   decoding keeps its acceptance rate (0.60–0.68).
+3. *Speed.* The kernels decode 4–20% faster than Q4_K_M and prefill 26–31% faster (5.3–5.5K vs 4.2K
+   tok/s), and MTP speculative decoding keeps its acceptance rate (0.60–0.68).
 
 **Protocol** (details in [docs/results.md](docs/results.md)). KLD/PPL: `llama-perplexity` against the
 BF16 GGUF, 512-token windows × 40, on wikitext-2 and on held-out mixed-domain text. Tasks: GSM8K,
