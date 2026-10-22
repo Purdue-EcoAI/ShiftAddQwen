@@ -50,6 +50,12 @@ with and without MTP drafting).
 
 ## Method
 
+ShiftAddQwen keeps ShiftAddLLM's weight representation (binary planes with per-group scales) and replaces its
+fitting pipeline and kernels: the fit is output-aware with measured mixed precision and end-to-end scale distillation,
+and the decode kernel is LUT-free (sign-select with `dp4a` byte masks). The symbols, the mat-vec identity, and what is
+kept from / replaced in ShiftAddLLM are written up in [docs/shiftadd_matvec.pdf](docs/shiftadd_matvec.pdf)
+(source: `docs/shiftadd_matvec.tex`).
+
 **Format.** `ggml` types `sa{2,3,4,5,6}[_128|_256]` (2.1–6.8 bits/weight): a super-block of 256 weights
 along the input dimension stores `Q` sign planes (`Q·32` bytes), one u8 scale code per plane and
 group of `G ∈ {64, 128, 256}` weights, and one fp16 scale `d`; `α = d·a`. The CUDA mat-vec turns
@@ -132,7 +138,18 @@ is shared by all target sizes; its four shards (`--layers 0-7`, …) can run on 
 
 ## Citation
 
+ShiftAddQwen builds on ShiftAddLLM but is not the same method (see [docs/shiftadd_matvec.pdf](docs/shiftadd_matvec.pdf)
+for what is kept and what is replaced); please cite both.
+
 ```bibtex
+@misc{you2026shiftaddqwen,
+  title={ShiftAddQwen: ShiftAdd reparameterization of Qwen3.5-9B for llama.cpp},
+  author={You, Haoran},
+  year={2026},
+  howpublished={\url{https://github.com/ranery/ShiftAddQwen}},
+  note={Models: \url{https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF}}
+}
+
 @inproceedings{you2024shiftaddllm,
   title={ShiftAddLLM: Accelerating Pretrained LLMs via Post-Training Multiplication-Less Reparameterization},
   author={You, Haoran and Guo, Yipin and Fu, Yichao and Zhou, Wei and Shi, Huihong and Zhang, Xiaofan and Kundu, Souvik and Yazdanbakhsh, Amir and Lin, Yingyan Celine},
