@@ -1,0 +1,432 @@
+[
+ {
+  "label": "Q4_K_M",
+  "model": "UnslothAI/Qwen-3.5-9B-Q4_K_M",
+  "ours": false,
+  "reasoning": {
+   "aime25": {
+    "mean": 54.17,
+    "per_seed": [
+     53.33,
+     50.0,
+     56.67,
+     56.67
+    ],
+    "avg_completion_tokens": 25868
+   }
+  },
+  "seeds": 4,
+  "bfcl": {
+   "non_live": {
+    "overall": 86.9,
+    "runs": [
+     86.9
+    ],
+    "cols": {
+     "Non-Live Overall Acc": 86.9,
+     "AST Summary": 86.9,
+     "Simple AST": 70.08,
+     "Python Simple AST": 95.25,
+     "Java Simple AST": 59.0,
+     "JavaScript Simple AST": 56.0,
+     "Multiple AST": 96.0,
+     "Parallel AST": 91.5,
+     "Parallel Multiple AST": 90.0,
+     "Irrelevance Detection": 86.25
+    }
+   },
+   "live": {
+    "overall": 79.72,
+    "runs": [
+     79.72
+    ],
+    "cols": {
+     "Live Overall Acc": 79.72,
+     "AST Summary": 79.72,
+     "Python Simple AST": 86.43,
+     "Python Multiple AST": 77.97,
+     "Python Parallel AST": 93.75,
+     "Python Parallel Multiple AST": 75.0,
+     "Irrelevance Detection": 77.49,
+     "Relevance Detection": 87.5
+    }
+   },
+   "multi_turn": {
+    "overall": 46.94,
+    "runs": [
+     47.0,
+     46.88
+    ],
+    "cols": {
+     "Multi Turn Overall Acc": 46.94,
+     "Base": 70.5,
+     "Miss Func": 30.0,
+     "Miss Param": 45.5,
+     "Long Context": 41.75
+    }
+   }
+  },
+  "tau": {
+   "retail": {
+    "pass1": 47.391304347826086,
+    "pass_k": 33.04347826086956,
+    "k": 2,
+    "tasks": 115,
+    "tasks_k": 115,
+    "episodes": 230
+   },
+   "airline": {
+    "pass1": 55.0,
+    "pass_k": 46.0,
+    "k": 2,
+    "tasks": 50,
+    "tasks_k": 50,
+    "episodes": 100
+   }
+  },
+  "vs_Q4_K_M": {}
+ },
+ {
+  "label": "v2g4.4q6_ft",
+  "model": "ShiftAddQwen-3.5-9B-4.4bits",
+  "ours": true,
+  "reasoning": {
+   "aime25": {
+    "mean": 58.33,
+    "per_seed": [
+     60.0,
+     56.67,
+     53.33,
+     63.33
+    ],
+    "avg_completion_tokens": 24589
+   }
+  },
+  "seeds": 4,
+  "bfcl": {
+   "non_live": {
+    "overall": 85.94,
+    "runs": [
+     85.94
+    ],
+    "cols": {
+     "Non-Live Overall Acc": 85.94,
+     "AST Summary": 85.94,
+     "Simple AST": 68.75,
+     "Python Simple AST": 94.25,
+     "Java Simple AST": 58.0,
+     "JavaScript Simple AST": 54.0,
+     "Multiple AST": 95.0,
+     "Parallel AST": 90.5,
+     "Parallel Multiple AST": 89.5,
+     "Irrelevance Detection": 84.58
+    }
+   },
+   "live": {
+    "overall": 79.94,
+    "runs": [
+     79.94
+    ],
+    "cols": {
+     "Live Overall Acc": 79.94,
+     "AST Summary": 79.94,
+     "Python Simple AST": 81.4,
+     "Python Multiple AST": 79.49,
+     "Python Parallel AST": 87.5,
+     "Python Parallel Multiple AST": 79.17,
+     "Irrelevance Detection": 81.67,
+     "Relevance Detection": 87.5
+    }
+   },
+   "multi_turn": {
+    "overall": 43.75,
+    "runs": [
+     43.62,
+     43.88
+    ],
+    "cols": {
+     "Multi Turn Overall Acc": 43.75,
+     "Base": 62.75,
+     "Miss Func": 27.5,
+     "Miss Param": 46.75,
+     "Long Context": 38.0
+    }
+   }
+  },
+  "tau": {
+   "retail": {
+    "pass1": 51.30434782608695,
+    "pass_k": 32.17391304347826,
+    "k": 2,
+    "tasks": 115,
+    "tasks_k": 115,
+    "episodes": 230
+   },
+   "airline": {
+    "pass1": 53.0,
+    "pass_k": 44.0,
+    "k": 2,
+    "tasks": 50,
+    "tasks_k": 50,
+    "episodes": 100
+   }
+  },
+  "vs_Q4_K_M": {
+   "non_live": {
+    "diff": -1.079136690647482,
+    "lo95": -2.2302158273381294,
+    "hi95": -0.07194244604316546,
+    "n": 1390
+   },
+   "live": {
+    "diff": 1.7769880053309641,
+    "lo95": 0.6663705019991115,
+    "hi95": 2.8876055086628165,
+    "n": 2251
+   },
+   "multi_turn": {
+    "diff": -3.1875,
+    "lo95": -5.375,
+    "hi95": -1.0625,
+    "n": 800
+   },
+   "retail": {
+    "diff": 3.9130434782608696,
+    "lo95": -2.608695652173913,
+    "hi95": 10.434782608695652,
+    "n": 115
+   },
+   "airline": {
+    "diff": -2.0,
+    "lo95": -12.0,
+    "hi95": 8.0,
+    "n": 50
+   }
+  }
+ },
+ {
+  "label": "Q3_K_M",
+  "model": "UnslothAI/Qwen-3.5-9B-Q3_K_M",
+  "ours": false,
+  "reasoning": {},
+  "seeds": null,
+  "bfcl": {
+   "non_live": {
+    "overall": 86.73,
+    "runs": [
+     86.73
+    ],
+    "cols": {
+     "Non-Live Overall Acc": 86.73,
+     "AST Summary": 86.73,
+     "Simple AST": 70.42,
+     "Python Simple AST": 94.25,
+     "Java Simple AST": 61.0,
+     "JavaScript Simple AST": 56.0,
+     "Multiple AST": 95.5,
+     "Parallel AST": 91.0,
+     "Parallel Multiple AST": 90.0,
+     "Irrelevance Detection": 78.33
+    }
+   },
+   "live": {
+    "overall": 79.2,
+    "runs": [
+     79.2
+    ],
+    "cols": {
+     "Live Overall Acc": 79.2,
+     "AST Summary": 79.2,
+     "Python Simple AST": 82.56,
+     "Python Multiple AST": 78.16,
+     "Python Parallel AST": 87.5,
+     "Python Parallel Multiple AST": 83.33,
+     "Irrelevance Detection": 77.15,
+     "Relevance Detection": 87.5
+    }
+   },
+   "multi_turn": {
+    "overall": 43.37,
+    "runs": [
+     43.62,
+     43.12
+    ],
+    "cols": {
+     "Multi Turn Overall Acc": 43.37,
+     "Base": 65.25,
+     "Miss Func": 22.5,
+     "Miss Param": 43.0,
+     "Long Context": 42.75
+    }
+   }
+  },
+  "tau": {
+   "retail": {
+    "pass1": 50.43478260869565,
+    "pass_k": 34.78260869565217,
+    "k": 2,
+    "tasks": 115,
+    "tasks_k": 115,
+    "episodes": 230
+   },
+   "airline": {
+    "pass1": 46.0,
+    "pass_k": 34.0,
+    "k": 2,
+    "tasks": 50,
+    "tasks_k": 50,
+    "episodes": 100
+   }
+  },
+  "vs_Q4_K_M": {
+   "non_live": {
+    "diff": -1.6546762589928057,
+    "lo95": -2.949640287769784,
+    "hi95": -0.5035971223021583,
+    "n": 1390
+   },
+   "live": {
+    "diff": -0.44424700133274103,
+    "lo95": -1.6437139049311418,
+    "hi95": 0.8440693025322079,
+    "n": 2251
+   },
+   "multi_turn": {
+    "diff": -3.5625,
+    "lo95": -5.8125,
+    "hi95": -1.1875,
+    "n": 800
+   },
+   "retail": {
+    "diff": 3.0434782608695654,
+    "lo95": -3.0434782608695654,
+    "hi95": 9.565217391304348,
+    "n": 115
+   },
+   "airline": {
+    "diff": -9.0,
+    "lo95": -20.0,
+    "hi95": 2.0,
+    "n": 50
+   }
+  }
+ },
+ {
+  "label": "v2g4.0_ft",
+  "model": "ShiftAddQwen-3.5-9B-4.0bits",
+  "ours": true,
+  "reasoning": {
+   "aime25": {
+    "mean": 51.67,
+    "per_seed": [
+     46.67,
+     53.33,
+     53.33,
+     53.33
+    ],
+    "avg_completion_tokens": 25250
+   }
+  },
+  "seeds": 4,
+  "bfcl": {
+   "non_live": {
+    "overall": 84.83,
+    "runs": [
+     84.83
+    ],
+    "cols": {
+     "Non-Live Overall Acc": 84.83,
+     "AST Summary": 84.83,
+     "Simple AST": 67.83,
+     "Python Simple AST": 93.5,
+     "Java Simple AST": 58.0,
+     "JavaScript Simple AST": 52.0,
+     "Multiple AST": 92.0,
+     "Parallel AST": 91.5,
+     "Parallel Multiple AST": 88.0,
+     "Irrelevance Detection": 85.0
+    }
+   },
+   "live": {
+    "overall": 79.35,
+    "runs": [
+     79.35
+    ],
+    "cols": {
+     "Live Overall Acc": 79.35,
+     "AST Summary": 79.35,
+     "Python Simple AST": 82.17,
+     "Python Multiple AST": 78.54,
+     "Python Parallel AST": 93.75,
+     "Python Parallel Multiple AST": 75.0,
+     "Irrelevance Detection": 82.81,
+     "Relevance Detection": 93.75
+    }
+   },
+   "multi_turn": {
+    "overall": 43.565,
+    "runs": [
+     43.25,
+     43.88
+    ],
+    "cols": {
+     "Multi Turn Overall Acc": 43.565,
+     "Base": 63.75,
+     "Miss Func": 28.75,
+     "Miss Param": 43.5,
+     "Long Context": 38.25
+    }
+   }
+  },
+  "tau": {
+   "retail": {
+    "pass1": 48.69565217391305,
+    "pass_k": 32.17391304347826,
+    "k": 2,
+    "tasks": 115,
+    "tasks_k": 115,
+    "episodes": 230
+   },
+   "airline": {
+    "pass1": 50.0,
+    "pass_k": 40.0,
+    "k": 2,
+    "tasks": 50,
+    "tasks_k": 50,
+    "episodes": 100
+   }
+  },
+  "vs_Q4_K_M": {
+   "non_live": {
+    "diff": -1.7985611510791366,
+    "lo95": -3.0215827338129495,
+    "hi95": -0.5755395683453237,
+    "n": 1390
+   },
+   "live": {
+    "diff": 1.9102621057307863,
+    "lo95": 0.7552199022656597,
+    "hi95": 3.065304309195913,
+    "n": 2251
+   },
+   "multi_turn": {
+    "diff": -3.375,
+    "lo95": -5.6875,
+    "hi95": -1.0625,
+    "n": 800
+   },
+   "retail": {
+    "diff": 1.3043478260869565,
+    "lo95": -5.6521739130434785,
+    "hi95": 8.695652173913043,
+    "n": 115
+   },
+   "airline": {
+    "diff": -5.0,
+    "lo95": -16.0,
+    "hi95": 7.0,
+    "n": 50
+   }
+  }
+ }
+]

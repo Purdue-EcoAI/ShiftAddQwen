@@ -27,6 +27,9 @@ GSM8K, MMLU-Pro, HumanEval and MGSM, with bootstrap 95% confidence intervals ove
 
 Full measurements for every model in Figure 1 (KLD, PPL, per-task accuracy, prefill/decode/MTP
 throughput) are in [docs/results.md](docs/results.md); raw numbers in `results/summary.json`.
+Tool calling (BFCL v4, τ-bench) of the 4.4- and 4.0-bit models against Q4_K_M and Q3_K_M:
+[docs/results.md#agentic-benchmarks-tool-calling](docs/results.md#agentic-benchmarks-tool-calling)
+(`tools/agentic`).
 
 **Findings.**
 1. *Memory.* ShiftAddQwen-3.5-9B-4.0bits is 19% smaller than UnslothAI/Qwen-3.5-9B-Q4_K_M (4.76 vs

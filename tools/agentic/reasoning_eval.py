@@ -5,15 +5,17 @@
 
 Thinking mode on (Qwen3.5 default); sampling at the model card's recommended temperature 0.6 / top-p 0.95
 with several seeds, so differences are averaged over sampling noise. Scoring: AIME/MATH-500 numeric or
-boxed-expression match; GPQA letter match (options shuffled per seed); IFEval strict-prompt via
-the official checker if installed (`pip install ifeval`), otherwise the loose keyword subset.
+boxed-expression match; GPQA letter match (options shuffled per seed); IFEval strict-prompt accuracy via
+the official checker (vendored in ifeval_lib; needs nltk punkt_tab, langdetect, immutabledict).
 """
-import argparse, json, random, re, time
+import argparse, json, random, re, sys, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
 from datasets import load_dataset
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 BOX = re.compile(r"\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}")
 
@@ -75,11 +77,12 @@ def items_for(task, seed):
 
 def score(it, content):
     if it["kind"] == "ifeval":
+        from ifeval_lib import evaluate_instruction_following  # vendored official checker (tools/agentic/ifeval_lib)
         try:
-            from ifeval import evaluate_instruction_following  # optional official checker
             return float(evaluate_instruction_following(it["prompt"], content, it["instruction_id_list"], it["kwargs"], strict=True))
-        except Exception:
-            return None
+        except Exception as e:  # checker crash on one response counts as not followed
+            print("ifeval checker error:", it["id"], str(e)[:100], flush=True)
+            return 0.0
     pred = last_boxed(content)
     if it["kind"] == "letter":
         m = re.search(r"[A-D]", pred or "") or re.search(r"(?:answer|Answer)\s*(?:is|:)?\s*\(?([A-D])\b", content)
