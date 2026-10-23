@@ -1,0 +1,1359 @@
+diff --git a/ggml/src/ggml-cuda/common.cuh b/ggml/src/ggml-cuda/common.cuh
+index 049100fe3..b51d2ecc3 100644
+--- a/ggml/src/ggml-cuda/common.cuh
++++ b/ggml/src/ggml-cuda/common.cuh
+@@ -201,7 +201,6 @@ void ggml_cuda_error(const char * stmt, const char * func, const char * file, in
+ 
+ #define CUDA_CHECK(err) CUDA_CHECK_GEN(err, cudaSuccess, cudaGetErrorString)
+ 
+-
+ #if CUDART_VERSION >= 12000 || defined(GGML_USE_MUSA)
+     static const char * cublas_get_error_str(const cublasStatus_t err) {
+         return cublasGetStatusString(err);
+@@ -409,7 +408,6 @@ static constexpr __device__ int ggml_cuda_get_max_cpy_bytes() {
+ #endif // defined(GGML_USE_HIP) || defined(GGML_USE_MUSA)
+ }
+ 
+-
+ [[noreturn]]
+ static __device__ void no_device_code(
+     const char * file_name, const int line, const char * function_name, const int arch, const char * arch_list) {
+@@ -997,6 +995,176 @@ struct ggml_cuda_type_traits<GGML_TYPE_Q2_0> {
+     static constexpr int bs = sizeof(block_q2_0);
+ };
+ 
++static constexpr __host__ __device__ bool ggml_cuda_type_is_sa(ggml_type type) {
++    switch (type) {
++        case GGML_TYPE_SA2: case GGML_TYPE_SA2_128: case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3: case GGML_TYPE_SA3_128: case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4: case GGML_TYPE_SA4_128: case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5: case GGML_TYPE_SA5_128: case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6: case GGML_TYPE_SA6_128: case GGML_TYPE_SA6_256:
++            return true;
++        default:
++            return false;
++    }
++}
++
++// fp16 super-block scale of a ShiftAdd block (stored as 2 bytes so odd-sized blocks are unpadded)
++template <typename block_t>
++static __device__ __forceinline__ float ggml_cuda_sa_d(const block_t * x) {
++    return __half2float(__ushort_as_half((unsigned short) (x->d[0] | (x->d[1] << 8))));
++}
++
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA2> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa2);
++};
++
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA3> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa3);
++};
++
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA4> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa4);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA2_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa2_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA3_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa3_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA4_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa4_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA2_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa2_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA3_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa3_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA4_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa4_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA5> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa5);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA5_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa5_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA5_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa5_256);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA6> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa6);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA6_128> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa6_128);
++};
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_SA6_256> {
++    static constexpr int qk = QK_SA;
++    static constexpr int qr = QR_SA;
++    static constexpr int qi = QI_SA;
++    static constexpr int bs = sizeof(block_sa6_256);
++};
++
++// ShiftAdd / BCQ: plane count and scale group size of an sa* type (0 / QK_SA for other types)
++static constexpr __host__ __device__ int ggml_cuda_sa_planes(ggml_type type) {
++    switch (type) {
++        case GGML_TYPE_SA2:     return SA2_Q;
++        case GGML_TYPE_SA3:     return SA3_Q;
++        case GGML_TYPE_SA4:     return SA4_Q;
++        case GGML_TYPE_SA2_128: return SA2_128_Q;
++        case GGML_TYPE_SA3_128: return SA3_128_Q;
++        case GGML_TYPE_SA4_128: return SA4_128_Q;
++        case GGML_TYPE_SA2_256: return SA2_256_Q;
++        case GGML_TYPE_SA3_256: return SA3_256_Q;
++        case GGML_TYPE_SA4_256: return SA4_256_Q;
++        case GGML_TYPE_SA5:     return SA5_Q;
++        case GGML_TYPE_SA5_128: return SA5_128_Q;
++        case GGML_TYPE_SA5_256: return SA5_256_Q;
++        case GGML_TYPE_SA6:     return SA6_Q;
++        case GGML_TYPE_SA6_128: return SA6_128_Q;
++        case GGML_TYPE_SA6_256: return SA6_256_Q;
++        default: return 0;
++    }
++}
++
++static constexpr __host__ __device__ int ggml_cuda_sa_group(ggml_type type) {
++    switch (type) {
++        case GGML_TYPE_SA2:     return SA2_G;
++        case GGML_TYPE_SA3:     return SA3_G;
++        case GGML_TYPE_SA4:     return SA4_G;
++        case GGML_TYPE_SA2_128: return SA2_128_G;
++        case GGML_TYPE_SA3_128: return SA3_128_G;
++        case GGML_TYPE_SA4_128: return SA4_128_G;
++        case GGML_TYPE_SA2_256: return SA2_256_G;
++        case GGML_TYPE_SA3_256: return SA3_256_G;
++        case GGML_TYPE_SA4_256: return SA4_256_G;
++        case GGML_TYPE_SA5:     return SA5_G;
++        case GGML_TYPE_SA5_128: return SA5_128_G;
++        case GGML_TYPE_SA5_256: return SA5_256_G;
++        case GGML_TYPE_SA6:     return SA6_G;
++        case GGML_TYPE_SA6_128: return SA6_128_G;
++        case GGML_TYPE_SA6_256: return SA6_256_G;
++        default: return QK_SA;
++    }
++}
++
+ template<>
+ struct ggml_cuda_type_traits<GGML_TYPE_Q4_0> {
+     static constexpr int qk = QK4_0;
+@@ -1248,7 +1416,6 @@ struct ggml_cuda_pool_alloc {
+     ggml_cuda_pool_alloc& operator=(ggml_cuda_pool_alloc &&) = delete;
+ };
+ 
+-
+ // backend interface
+ 
+ struct ggml_tensor_extra_gpu {
+@@ -1256,7 +1423,6 @@ struct ggml_tensor_extra_gpu {
+     cudaEvent_t events[GGML_CUDA_MAX_DEVICES][GGML_CUDA_MAX_STREAMS]; // events for synchronizing multiple GPUs
+ };
+ 
+-
+ #if (defined(GGML_CUDA_USE_GRAPHS) || defined(GGML_HIP_GRAPHS)) || defined(GGML_MUSA_GRAPHS)
+ #define USE_CUDA_GRAPH
+ #endif
+diff --git a/ggml/src/ggml-cuda/convert.cu b/ggml/src/ggml-cuda/convert.cu
+index 77fd28894..ff19f7b56 100644
+--- a/ggml/src/ggml-cuda/convert.cu
++++ b/ggml/src/ggml-cuda/convert.cu
+@@ -275,6 +275,39 @@ static void dequantize_block_q8_0_f16_cuda(const void * __restrict__ vx, half *
+     }
+ }
+ 
++
++// ShiftAdd / BCQ: one warp per 256-element super-block, each thread expands one byte of every bit-plane (8 elements)
++template <int Q, int G, typename block_t, typename dst_t>
++static __global__ void dequantize_block_sa(const void * __restrict__ vx, dst_t * __restrict__ yy) {
++    const int64_t i = blockIdx.x;
++    const block_t * x = (const block_t *) vx + i;
++    const int t = threadIdx.x; // 0..31 -> elements 8t..8t+7
++    const float d = ggml_cuda_sa_d(x);
++    const int g = 8*t / G;
++    float v[8] = {0.0f};
++#pragma unroll
++    for (int p = 0; p < Q; ++p) {
++        const float al = d * x->a[g*Q + p];
++        const int byte = x->qs[p*32 + t];
++#pragma unroll
++        for (int l = 0; l < 8; ++l) {
++            v[l] += ((byte >> l) & 1) ? al : -al;
++        }
++    }
++    dst_t * y = yy + i*QK_SA + 8*t;
++#pragma unroll
++    for (int l = 0; l < 8; ++l) {
++        y[l] = ggml_cuda_cast<dst_t>(v[l]);
++    }
++}
++
++template <int Q, int G, typename block_t, typename dst_t>
++static void dequantize_row_sa_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
++    const int64_t nb = k / QK_SA;
++    dequantize_block_sa<Q, G, block_t><<<nb, 32, 0, stream>>>(vx, y);
++}
++
++
+ template<typename dst_t>
+ static void dequantize_row_q2_K_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
+     const int nb = k / QK_K;
+@@ -499,6 +532,36 @@ to_bf16_cuda_t ggml_get_to_bf16_cuda(ggml_type type) {
+             return dequantize_block_cont_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cont_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_row_sa_cuda<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:
++            return dequantize_row_sa_cuda<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:
++            return dequantize_row_sa_cuda<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_row_sa_cuda<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_row_sa_cuda<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_row_sa_cuda<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_row_sa_cuda<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_row_sa_cuda<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_row_sa_cuda<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:
++            return dequantize_row_sa_cuda<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_row_sa_cuda<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_row_sa_cuda<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:
++            return dequantize_row_sa_cuda<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_row_sa_cuda<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_row_sa_cuda<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -556,6 +619,36 @@ to_fp16_cuda_t ggml_get_to_fp16_cuda(ggml_type type) {
+             return dequantize_block_cont_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cont_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_row_sa_cuda<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:
++            return dequantize_row_sa_cuda<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:
++            return dequantize_row_sa_cuda<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_row_sa_cuda<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_row_sa_cuda<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_row_sa_cuda<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_row_sa_cuda<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_row_sa_cuda<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_row_sa_cuda<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:
++            return dequantize_row_sa_cuda<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_row_sa_cuda<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_row_sa_cuda<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:
++            return dequantize_row_sa_cuda<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_row_sa_cuda<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_row_sa_cuda<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -616,6 +709,36 @@ to_fp32_cuda_t ggml_get_to_fp32_cuda(ggml_type type) {
+             return dequantize_block_cont_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cont_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_row_sa_cuda<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:
++            return dequantize_row_sa_cuda<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:
++            return dequantize_row_sa_cuda<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_row_sa_cuda<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_row_sa_cuda<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_row_sa_cuda<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_row_sa_cuda<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_row_sa_cuda<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_row_sa_cuda<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:
++            return dequantize_row_sa_cuda<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_row_sa_cuda<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_row_sa_cuda<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:
++            return dequantize_row_sa_cuda<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_row_sa_cuda<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_row_sa_cuda<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -675,6 +798,36 @@ to_fp16_nc_cuda_t ggml_get_to_fp16_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>;
++        case GGML_TYPE_SA3:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>;
++        case GGML_TYPE_SA4:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>;
++        case GGML_TYPE_SA5:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>;
++        case GGML_TYPE_SA6:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+@@ -700,6 +853,36 @@ to_bf16_nc_cuda_t ggml_get_to_bf16_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>;
++        case GGML_TYPE_SA3:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>;
++        case GGML_TYPE_SA4:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>;
++        case GGML_TYPE_SA5:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>;
++        case GGML_TYPE_SA6:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+@@ -725,6 +908,36 @@ to_fp32_nc_cuda_t ggml_get_to_fp32_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK1_0, QR1_0, dequantize_q1_0>;
+         case GGML_TYPE_Q2_0:
+             return dequantize_block_cuda<QK2_0, QR2_0, dequantize_q2_0>;
++        case GGML_TYPE_SA2:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>;
++        case GGML_TYPE_SA3:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>;
++        case GGML_TYPE_SA4:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>;
++        case GGML_TYPE_SA2_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>;
++        case GGML_TYPE_SA3_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>;
++        case GGML_TYPE_SA4_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>;
++        case GGML_TYPE_SA2_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>;
++        case GGML_TYPE_SA3_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>;
++        case GGML_TYPE_SA4_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>;
++        case GGML_TYPE_SA5:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>;
++        case GGML_TYPE_SA5_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>;
++        case GGML_TYPE_SA5_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>;
++        case GGML_TYPE_SA6:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>;
++        case GGML_TYPE_SA6_128:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>;
++        case GGML_TYPE_SA6_256:
++            return dequantize_block_cuda<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+diff --git a/ggml/src/ggml-cuda/dequantize.cuh b/ggml/src/ggml-cuda/dequantize.cuh
+index 651524be7..34928f9ad 100644
+--- a/ggml/src/ggml-cuda/dequantize.cuh
++++ b/ggml/src/ggml-cuda/dequantize.cuh
+@@ -23,6 +23,24 @@ static __device__ __forceinline__ void dequantize_q1_0(const void * vx, const in
+     v.y = (2*bit_1 - 1) * d;
+ }
+ 
++// ShiftAdd / BCQ: two consecutive elements (iqs, iqs+1) of super-block ib
++template <int Q, int G, typename block_t>
++static __device__ __forceinline__ void dequantize_sa(const void * vx, const int64_t ib, const int iqs, float2 & v){
++    const block_t * x = (const block_t *) vx + ib;
++    const float d = ggml_cuda_sa_d(x);
++    const int g = iqs / G;
++    float v0 = 0.0f, v1 = 0.0f;
++#pragma unroll
++    for (int p = 0; p < Q; ++p) {
++        const float al = d * x->a[g*Q + p];
++        const int byte = x->qs[p*32 + iqs/8];
++        v0 += ((byte >> (iqs % 8))       & 1) ? al : -al;
++        v1 += ((byte >> ((iqs + 1) % 8)) & 1) ? al : -al;
++    }
++    v.x = v0;
++    v.y = v1;
++}
++
+ static __device__ __forceinline__ void dequantize_q2_0(const void * vx, const int64_t ib, const int iqs, float2 & v){
+     const block_q2_0 * x = (const block_q2_0 *) vx;
+ 
+diff --git a/ggml/src/ggml-cuda/getrows.cu b/ggml/src/ggml-cuda/getrows.cu
+index d97e8fdb0..9b8ee90b3 100644
+--- a/ggml/src/ggml-cuda/getrows.cu
++++ b/ggml/src/ggml-cuda/getrows.cu
+@@ -324,6 +324,66 @@ static void ggml_cuda_get_rows_switch_src0_type(
+             get_rows_cuda_q<QK2_0, QR2_0, dequantize_q2_0>(src0_d, src1_d, dst_d,
+                 ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
+             break;
++        case GGML_TYPE_SA2:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA2_Q, SA2_G, block_sa2>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA3:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA3_Q, SA3_G, block_sa3>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA4:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA4_Q, SA4_G, block_sa4>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA2_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA2_128_Q, SA2_128_G, block_sa2_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA3_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA3_128_Q, SA3_128_G, block_sa3_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA4_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA4_128_Q, SA4_128_G, block_sa4_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA2_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA2_256_Q, SA2_256_G, block_sa2_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA3_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA3_256_Q, SA3_256_G, block_sa3_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA4_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA4_256_Q, SA4_256_G, block_sa4_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA5:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA5_Q, SA5_G, block_sa5>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA5_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA5_128_Q, SA5_128_G, block_sa5_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA5_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA5_256_Q, SA5_256_G, block_sa5_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA6:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA6_Q, SA6_G, block_sa6>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA6_128:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA6_128_Q, SA6_128_G, block_sa6_128>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
++        case GGML_TYPE_SA6_256:
++            get_rows_cuda_q<QK_SA, QR_SA, dequantize_sa<SA6_256_Q, SA6_256_G, block_sa6_256>>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
+         case GGML_TYPE_Q4_0:
+             get_rows_cuda_q<QK4_0, QR4_0, dequantize_q4_0>(src0_d, src1_d, dst_d,
+                 ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index e43807392..0844a751f 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -5661,6 +5661,21 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
+                     case GGML_TYPE_IQ3_XXS:
+                     case GGML_TYPE_IQ4_NL:
+                     case GGML_TYPE_IQ4_XS:
++                    case GGML_TYPE_SA2:
++                    case GGML_TYPE_SA3:
++                    case GGML_TYPE_SA4:
++                    case GGML_TYPE_SA2_128:
++                    case GGML_TYPE_SA3_128:
++                    case GGML_TYPE_SA4_128:
++                    case GGML_TYPE_SA2_256:
++                    case GGML_TYPE_SA3_256:
++                    case GGML_TYPE_SA4_256:
++                    case GGML_TYPE_SA5:
++                    case GGML_TYPE_SA5_128:
++                    case GGML_TYPE_SA5_256:
++                    case GGML_TYPE_SA6:
++                    case GGML_TYPE_SA6_128:
++                    case GGML_TYPE_SA6_256:
+                     case GGML_TYPE_BF16:
+                         return true;
+                     default:
+@@ -5678,6 +5693,21 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
+                     case GGML_TYPE_I32:
+                     case GGML_TYPE_Q1_0:
+                     case GGML_TYPE_Q2_0:
++                    case GGML_TYPE_SA2:
++                    case GGML_TYPE_SA3:
++                    case GGML_TYPE_SA4:
++                    case GGML_TYPE_SA2_128:
++                    case GGML_TYPE_SA3_128:
++                    case GGML_TYPE_SA4_128:
++                    case GGML_TYPE_SA2_256:
++                    case GGML_TYPE_SA3_256:
++                    case GGML_TYPE_SA4_256:
++                    case GGML_TYPE_SA5:
++                    case GGML_TYPE_SA5_128:
++                    case GGML_TYPE_SA5_256:
++                    case GGML_TYPE_SA6:
++                    case GGML_TYPE_SA6_128:
++                    case GGML_TYPE_SA6_256:
+                     case GGML_TYPE_Q4_0:
+                     case GGML_TYPE_Q4_1:
+                     case GGML_TYPE_Q5_0:
+diff --git a/ggml/src/ggml-cuda/mmq-load-tiles.cuh b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+index b37d88c16..47d932c78 100644
+--- a/ggml/src/ggml-cuda/mmq-load-tiles.cuh
++++ b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+@@ -1579,6 +1579,105 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+     }
+ }
+ 
++// ShiftAdd / BCQ: a thread expands 8 weights (one sign byte per plane) of one 256-weight super-block into two int32
++// words of int8 values; w = sum_p a_p*s_p is rescaled to [-127, 127] by the group's sum of plane codes, which goes
++// into the per-32 scale, so the tile has the q8_0 layout and uses the q8_0 x q8_1 dot products
++template <ggml_type type, int J, bool fallback> static __device__ __forceinline__ void ggml_cuda_mmq_load_tiles_sa(
++        const char * __restrict__ x, int * __restrict__ x_tile, const int kbx0, const int i_max, const int stride) {
++    constexpr int warp_size   = ggml_cuda_get_physical_warp_size();
++    constexpr int nwarps      = ggml_cuda_mmq_get_nthreads(type, J, fallback, GGML_PREC_Q8) / warp_size;
++    constexpr int I           = ggml_cuda_mmq_get_I(type, J, fallback, GGML_PREC_Q8);
++    constexpr int Q  = ggml_cuda_sa_planes(type);
++    constexpr int G  = ggml_cuda_sa_group(type);
++    constexpr int ng = QK_SA / G;
++    constexpr int bs = Q*QK_SA/8 + Q*ng + 2; // sign planes | scale codes | fp16 d
++
++#if defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
++    constexpr int sram_stride = ggml_cuda_mmq_get_sram_stride(type, J, fallback, GGML_PREC_Q8);
++    int   * x_qs = (int   *)  x_tile;
++    float * x_df = (float *) (x_qs + MMQ_TILE_NE_K*2);
++#else
++    constexpr tile_x_sizes txs = mmq_get_dp4a_tile_x_sizes(type, I);
++    int   * x_qs = (int   *)  x_tile;
++    float * x_df = (float *) (x_qs + txs.qs);
++#endif // defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
++
++    constexpr int threads_per_row = MMQ_ITER_K / 8;
++    constexpr int nrows = warp_size / threads_per_row;
++    const int txi = warp_size > threads_per_row ? threadIdx.x % threads_per_row : threadIdx.x;
++    const int g   = (8*txi) / G;
++
++#pragma unroll
++    for (int i0 = 0; i0 < I; i0 += nrows*nwarps) {
++        int i = i0 + (nrows == 1 ? threadIdx.y : threadIdx.y*nrows + threadIdx.x/threads_per_row);
++
++        if (fallback) {
++            i = min(i, i_max);
++        }
++
++        const uint8_t * bxi = (const uint8_t *) x + (size_t) (kbx0 + i*stride) * bs;
++        const uint8_t * ba  = bxi + Q*QK_SA/8;
++
++        int sum_a = 0;
++        int w[8] = {0, 0, 0, 0, 0, 0, 0, 0};
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            const int a    = ba[g*Q + p];
++            const int bits = bxi[p*32 + txi];
++            sum_a += a;
++#pragma unroll
++            for (int k = 0; k < 8; ++k) {
++                w[k] += ((bits >> k) & 1) ? a : -a;
++            }
++        }
++        const float inv = 127.0f / (float) max(sum_a, 1);
++        int v[2] = {0, 0};
++#pragma unroll
++        for (int k = 0; k < 8; ++k) {
++            const int q = __float2int_rn((float) w[k] * inv);
++            v[k/4] |= (q & 0xFF) << (8*(k % 4));
++        }
++
++#if defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
++        x_qs[i*sram_stride + 2*txi + 0] = v[0];
++        x_qs[i*sram_stride + 2*txi + 1] = v[1];
++#else
++        x_qs[i*(2*MMQ_TILE_NE_K + 1) + 2*txi + 0] = v[0];
++        x_qs[i*(2*MMQ_TILE_NE_K + 1) + 2*txi + 1] = v[1];
++#endif // defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
++    }
++
++    constexpr int blocks_per_tile_x_row = MMQ_ITER_K / 32;
++    constexpr int rows_per_warp = warp_size / blocks_per_tile_x_row;
++    const int kbxd = threadIdx.x % blocks_per_tile_x_row;
++
++#pragma unroll
++    for (int i0 = 0; i0 < I; i0 += nwarps * rows_per_warp) {
++        int i = i0 + threadIdx.y * rows_per_warp + threadIdx.x / blocks_per_tile_x_row;
++
++        if (fallback) {
++            i = min(i, i_max);
++        }
++
++        const uint8_t * bxi = (const uint8_t *) x + (size_t) (kbx0 + i*stride) * bs;
++        const uint8_t * ba  = bxi + Q*QK_SA/8;
++        const int gd = (kbxd*32) / G;
++        int sum_a = 0;
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            sum_a += ba[gd*Q + p];
++        }
++        const float d  = __half2float(__ushort_as_half((unsigned short) (ba[Q*ng] | (ba[Q*ng + 1] << 8))));
++        const float df = d * (float) sum_a / 127.0f;
++
++#if defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
++        x_df[i*sram_stride + kbxd] = df;
++#else
++        x_df[i*(2*MMQ_TILE_NE_K/QI8_0) + i/(QI8_0/2) + kbxd] = df;
++#endif // defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
++    }
++}
++
+ // ---------------------------------------------------------------------------------------------
+ 
+ template <ggml_type type, int J, bool fallback> static __device__ __forceinline__ void ggml_cuda_mmq_load_tiles_mxfp4(
+diff --git a/ggml/src/ggml-cuda/mmq.cu b/ggml/src/ggml-cuda/mmq.cu
+index 46efdfe0f..7daab84e5 100644
+--- a/ggml/src/ggml-cuda/mmq.cu
++++ b/ggml/src/ggml-cuda/mmq.cu
+@@ -69,6 +69,51 @@ static void ggml_cuda_mul_mat_q_switch_type(ggml_backend_cuda_context & ctx, con
+         case GGML_TYPE_IQ4_NL:
+             mul_mat_q_case<GGML_TYPE_IQ4_NL, GGML_PREC_Q8>(ctx, args, stream);
+             break;
++        case GGML_TYPE_SA2:
++            mul_mat_q_case<GGML_TYPE_SA2, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA3:
++            mul_mat_q_case<GGML_TYPE_SA3, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA4:
++            mul_mat_q_case<GGML_TYPE_SA4, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA2_128:
++            mul_mat_q_case<GGML_TYPE_SA2_128, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA3_128:
++            mul_mat_q_case<GGML_TYPE_SA3_128, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA4_128:
++            mul_mat_q_case<GGML_TYPE_SA4_128, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA2_256:
++            mul_mat_q_case<GGML_TYPE_SA2_256, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA3_256:
++            mul_mat_q_case<GGML_TYPE_SA3_256, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA4_256:
++            mul_mat_q_case<GGML_TYPE_SA4_256, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA5:
++            mul_mat_q_case<GGML_TYPE_SA5, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA5_128:
++            mul_mat_q_case<GGML_TYPE_SA5_128, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA5_256:
++            mul_mat_q_case<GGML_TYPE_SA5_256, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA6:
++            mul_mat_q_case<GGML_TYPE_SA6, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA6_128:
++            mul_mat_q_case<GGML_TYPE_SA6_128, GGML_PREC_Q8>(ctx, args, stream);
++            break;
++        case GGML_TYPE_SA6_256:
++            mul_mat_q_case<GGML_TYPE_SA6_256, GGML_PREC_Q8>(ctx, args, stream);
++            break;
+ // -----------------------------------------------------------------------
+         case GGML_TYPE_MXFP4:
+             // src1 at Q4 uses the native FP4 instructions, which are Blackwell-only
+@@ -382,6 +427,21 @@ bool ggml_cuda_should_use_mmq(enum ggml_type type, int cc, int64_t ne11, int64_t
+         case GGML_TYPE_IQ3_S:
+         case GGML_TYPE_IQ4_XS:
+         case GGML_TYPE_IQ4_NL:
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
+ // -------------------------------------------------
+         case GGML_TYPE_MXFP4:
+         case GGML_TYPE_NVFP4:
+@@ -405,6 +465,11 @@ bool ggml_cuda_should_use_mmq(enum ggml_type type, int cc, int64_t ne11, int64_t
+         }
+     }
+ 
++    // ShiftAdd tiles are expanded from sign planes while loading, which costs more than cuBLAS saves at large batch
++    if (ggml_cuda_type_is_sa(type) && fp16_mma_hardware_available(cc)) {
++        return ne11 < MMQ_DP4A_MAX_BATCH_SIZE;
++    }
++
+     if (turing_mma_available(cc)) {
+         return true;
+     }
+diff --git a/ggml/src/ggml-cuda/mmq.cuh b/ggml/src/ggml-cuda/mmq.cuh
+index e008a34c0..fcdd7c7d5 100644
+--- a/ggml/src/ggml-cuda/mmq.cuh
++++ b/ggml/src/ggml-cuda/mmq.cuh
+@@ -94,6 +94,22 @@ static mmq_q8_1_ds_layout mmq_get_q8_1_ds_layout(const ggml_type type_x) {
+         case GGML_TYPE_IQ4_XS:
+         case GGML_TYPE_IQ4_NL:
+             return MMQ_Q8_1_DS_LAYOUT_D4;
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
++            return MMQ_Q8_1_DS_LAYOUT_D4;
+         default:
+             GGML_ABORT("fatal error");
+     }
+@@ -226,7 +242,13 @@ struct ggml_cuda_mmq_config {
+ 
+ #undef CASE
+ 
+-static __host__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(const ggml_type type, const int J, const bool fallback, const int cc, const ggml_prec prec_src1) {
++// ShiftAdd types expand to q8_0-layout tiles and share the IQ4_NL configuration
++static constexpr __host__ __device__ ggml_type ggml_cuda_mmq_config_type(ggml_type type) {
++    return ggml_cuda_type_is_sa(type) ? GGML_TYPE_IQ4_NL : type;
++}
++
++static __host__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(const ggml_type type_in, const int J, const bool fallback, const int cc, const ggml_prec prec_src1) {
++    const ggml_type type = ggml_cuda_mmq_config_type(type_in);
+     if (GGML_CUDA_CC_IS_AMD(cc)) {
+         if (GGML_CUDA_CC_IS_GCN(cc)) {
+             return ggml_cuda_mmq_get_config_gcn(type, J, fallback);
+@@ -261,7 +283,8 @@ static __host__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(const ggml_type ty
+     return ggml_cuda_mmq_get_config_pascal_older(type, J, fallback);
+ }
+ 
+-static constexpr __device__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(ggml_type type, int J, bool fallback, ggml_prec prec_src1) {
++static constexpr __device__ ggml_cuda_mmq_config ggml_cuda_mmq_get_config(ggml_type type_in, int J, bool fallback, ggml_prec prec_src1) {
++    const ggml_type type = ggml_cuda_mmq_config_type(type_in);
+ #ifdef GGML_USE_HIP
+ #ifdef GCN
+     return ggml_cuda_mmq_get_config_gcn(type, J, fallback);
+@@ -411,6 +434,21 @@ static constexpr __host__ __device__ tile_x_sizes mmq_get_dp4a_tile_x_sizes(ggml
+         case GGML_TYPE_IQ1_S:   return MMQ_DP4A_TXS_Q8_0;
+         case GGML_TYPE_IQ4_XS:  return MMQ_DP4A_TXS_Q8_0;
+         case GGML_TYPE_IQ4_NL:  return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA2:     return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA3:     return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA4:     return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA2_128: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA3_128: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA4_128: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA2_256: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA3_256: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA4_256: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA5:     return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA5_128: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA5_256: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA6:     return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA6_128: return MMQ_DP4A_TXS_Q8_0;
++        case GGML_TYPE_SA6_256: return MMQ_DP4A_TXS_Q8_0;
+         default:                return tile_x_sizes{0, 0, 0};
+     }
+ }
+@@ -659,6 +697,26 @@ static constexpr __device__ ggml_cuda_mmq_util_funcs ggml_cuda_mmq_get_util_func
+                     ggml_cuda_mmq_load_tiles_iq4_nl<type, J, fallback>,
+                     ggml_cuda_mmq_vec_dot_q8_0_q8_1_dp4a<type, J, fallback>,
+                     ggml_cuda_mmq_write_back_dp4a<type, J, fallback, prec_src1>);
++            case GGML_TYPE_SA2:
++            case GGML_TYPE_SA3:
++            case GGML_TYPE_SA4:
++            case GGML_TYPE_SA2_128:
++            case GGML_TYPE_SA3_128:
++            case GGML_TYPE_SA4_128:
++            case GGML_TYPE_SA2_256:
++            case GGML_TYPE_SA3_256:
++            case GGML_TYPE_SA4_256:
++            case GGML_TYPE_SA5:
++            case GGML_TYPE_SA5_128:
++            case GGML_TYPE_SA5_256:
++            case GGML_TYPE_SA6:
++            case GGML_TYPE_SA6_128:
++            case GGML_TYPE_SA6_256:
++                return ggml_cuda_mmq_util_funcs(
++                    VDR_SA_Q8_1_MMQ,
++                    ggml_cuda_mmq_load_tiles_sa<type, J, fallback>,
++                    ggml_cuda_mmq_vec_dot_q8_0_q8_1_dp4a<type, J, fallback>,
++                    ggml_cuda_mmq_write_back_dp4a<type, J, fallback, prec_src1>);
+ // ---------------------------------------------------------------------------------------------
+             case GGML_TYPE_MXFP4:
+                 return ggml_cuda_mmq_util_funcs(
+@@ -829,6 +887,26 @@ static constexpr __device__ ggml_cuda_mmq_util_funcs ggml_cuda_mmq_get_util_func
+                 ggml_cuda_mmq_load_tiles_iq4_nl<type, J, fallback>,
+                 ggml_cuda_mmq_vec_dot_q8_0_q8_1_mma<type, J, fallback, MMQ_Q8_1_DS_LAYOUT_D4>,
+                 ggml_cuda_mmq_write_back_mma<type, J, fallback, prec_src1>);
++        case GGML_TYPE_SA2:
++        case GGML_TYPE_SA3:
++        case GGML_TYPE_SA4:
++        case GGML_TYPE_SA2_128:
++        case GGML_TYPE_SA3_128:
++        case GGML_TYPE_SA4_128:
++        case GGML_TYPE_SA2_256:
++        case GGML_TYPE_SA3_256:
++        case GGML_TYPE_SA4_256:
++        case GGML_TYPE_SA5:
++        case GGML_TYPE_SA5_128:
++        case GGML_TYPE_SA5_256:
++        case GGML_TYPE_SA6:
++        case GGML_TYPE_SA6_128:
++        case GGML_TYPE_SA6_256:
++            return ggml_cuda_mmq_util_funcs(
++                -1,
++                ggml_cuda_mmq_load_tiles_sa<type, J, fallback>,
++                ggml_cuda_mmq_vec_dot_q8_0_q8_1_mma<type, J, fallback, MMQ_Q8_1_DS_LAYOUT_D4>,
++                ggml_cuda_mmq_write_back_mma<type, J, fallback, prec_src1>);
+ // ---------------------------------------------------------------------------------------------
+         case GGML_TYPE_MXFP4:
+             return ggml_cuda_mmq_util_funcs(
+@@ -1572,6 +1650,21 @@ extern DECL_MMQ_CASE(GGML_TYPE_IQ2_S);
+ extern DECL_MMQ_CASE(GGML_TYPE_IQ3_XXS);
+ extern DECL_MMQ_CASE(GGML_TYPE_IQ3_S);
+ extern DECL_MMQ_CASE(GGML_TYPE_IQ4_NL);
++extern DECL_MMQ_CASE(GGML_TYPE_SA2);
++extern DECL_MMQ_CASE(GGML_TYPE_SA3);
++extern DECL_MMQ_CASE(GGML_TYPE_SA4);
++extern DECL_MMQ_CASE(GGML_TYPE_SA2_128);
++extern DECL_MMQ_CASE(GGML_TYPE_SA3_128);
++extern DECL_MMQ_CASE(GGML_TYPE_SA4_128);
++extern DECL_MMQ_CASE(GGML_TYPE_SA2_256);
++extern DECL_MMQ_CASE(GGML_TYPE_SA3_256);
++extern DECL_MMQ_CASE(GGML_TYPE_SA4_256);
++extern DECL_MMQ_CASE(GGML_TYPE_SA5);
++extern DECL_MMQ_CASE(GGML_TYPE_SA5_128);
++extern DECL_MMQ_CASE(GGML_TYPE_SA5_256);
++extern DECL_MMQ_CASE(GGML_TYPE_SA6);
++extern DECL_MMQ_CASE(GGML_TYPE_SA6_128);
++extern DECL_MMQ_CASE(GGML_TYPE_SA6_256);
+ extern DECL_MMQ_CASE(GGML_TYPE_IQ4_XS);
+ // -----------------------------------------
+ extern DECL_MMQ_CASE(GGML_TYPE_MXFP4);
+diff --git a/ggml/src/ggml-cuda/mmvq.cu b/ggml/src/ggml-cuda/mmvq.cu
+index 930f1adc4..b3b5262d1 100644
+--- a/ggml/src/ggml-cuda/mmvq.cu
++++ b/ggml/src/ggml-cuda/mmvq.cu
+@@ -62,6 +62,21 @@ static constexpr __device__ vec_dot_q_cuda_t get_vec_dot_q_cuda(ggml_type type)
+         case GGML_TYPE_IQ4_NL:  return vec_dot_iq4_nl_q8_1;
+         case GGML_TYPE_IQ4_XS:  return vec_dot_iq4_xs_q8_1;
+         case GGML_TYPE_IQ3_S:   return vec_dot_iq3_s_q8_1;
++        case GGML_TYPE_SA2:     return vec_dot_sa_q8_1<SA2_Q, SA2_G, block_sa2>;
++        case GGML_TYPE_SA3:     return vec_dot_sa_q8_1<SA3_Q, SA3_G, block_sa3>;
++        case GGML_TYPE_SA4:     return vec_dot_sa_q8_1<SA4_Q, SA4_G, block_sa4>;
++        case GGML_TYPE_SA2_128: return vec_dot_sa_q8_1<SA2_128_Q, SA2_128_G, block_sa2_128>;
++        case GGML_TYPE_SA3_128: return vec_dot_sa_q8_1<SA3_128_Q, SA3_128_G, block_sa3_128>;
++        case GGML_TYPE_SA4_128: return vec_dot_sa_q8_1<SA4_128_Q, SA4_128_G, block_sa4_128>;
++        case GGML_TYPE_SA2_256: return vec_dot_sa_q8_1<SA2_256_Q, SA2_256_G, block_sa2_256>;
++        case GGML_TYPE_SA3_256: return vec_dot_sa_q8_1<SA3_256_Q, SA3_256_G, block_sa3_256>;
++        case GGML_TYPE_SA4_256: return vec_dot_sa_q8_1<SA4_256_Q, SA4_256_G, block_sa4_256>;
++        case GGML_TYPE_SA5:     return vec_dot_sa_q8_1<SA5_Q, SA5_G, block_sa5>;
++        case GGML_TYPE_SA5_128: return vec_dot_sa_q8_1<SA5_128_Q, SA5_128_G, block_sa5_128>;
++        case GGML_TYPE_SA5_256: return vec_dot_sa_q8_1<SA5_256_Q, SA5_256_G, block_sa5_256>;
++        case GGML_TYPE_SA6:     return vec_dot_sa_q8_1<SA6_Q, SA6_G, block_sa6>;
++        case GGML_TYPE_SA6_128: return vec_dot_sa_q8_1<SA6_128_Q, SA6_128_G, block_sa6_128>;
++        case GGML_TYPE_SA6_256: return vec_dot_sa_q8_1<SA6_256_Q, SA6_256_G, block_sa6_256>;
+         default:                return nullptr;
+     }
+ }
+@@ -89,6 +104,21 @@ static constexpr __host__ __device__ int get_vdr_mmvq(ggml_type type) {
+         case GGML_TYPE_IQ3_S:   return VDR_IQ3_S_Q8_1_MMVQ;
+         case GGML_TYPE_IQ4_NL:  return VDR_IQ4_NL_Q8_1_MMVQ;
+         case GGML_TYPE_IQ4_XS:  return VDR_IQ4_XS_Q8_1_MMVQ;
++        case GGML_TYPE_SA2:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA3:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA4:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA2_128: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA3_128: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA4_128: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA2_256: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA3_256: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA4_256: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA5:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA5_128: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA5_256: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA6:     return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA6_128: return VDR_SA_Q8_1_MMVQ;
++        case GGML_TYPE_SA6_256: return VDR_SA_Q8_1_MMVQ;
+         default:                return 1;
+     }
+ }
+@@ -1321,6 +1351,96 @@ static void mul_mat_vec_q_switch_type(
+                  nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
+                  nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
+             break;
++        case GGML_TYPE_SA2:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA2>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA3:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA3>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA4:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA4>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA2_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA2_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA3_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA3_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA4_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA4_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA2_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA2_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA3_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA3_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA4_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA4_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA5:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA5>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA5_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA5_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA5_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA5_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA6:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA6>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA6_128:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA6_128>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
++        case GGML_TYPE_SA6_256:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_SA6_256>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, stream);
++            break;
+         case GGML_TYPE_Q4_0:
+             mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_Q4_0>
+                 (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
+diff --git a/ggml/src/ggml-cuda/template-instances/generate_cu_files.py b/ggml/src/ggml-cuda/template-instances/generate_cu_files.py
+index 7be409bd3..986b0b27b 100755
+--- a/ggml/src/ggml-cuda/template-instances/generate_cu_files.py
++++ b/ggml/src/ggml-cuda/template-instances/generate_cu_files.py
+@@ -40,7 +40,8 @@ TYPES_MMQ = [
+     "GGML_TYPE_Q4_0", "GGML_TYPE_Q4_1", "GGML_TYPE_Q5_0", "GGML_TYPE_Q5_1", "GGML_TYPE_Q8_0",
+     "GGML_TYPE_Q2_K", "GGML_TYPE_Q3_K", "GGML_TYPE_Q4_K", "GGML_TYPE_Q5_K", "GGML_TYPE_Q6_K",
+     "GGML_TYPE_IQ2_XXS", "GGML_TYPE_IQ2_XS", "GGML_TYPE_IQ2_S", "GGML_TYPE_IQ3_XXS", "GGML_TYPE_IQ3_S",
+-    "GGML_TYPE_IQ1_S", "GGML_TYPE_IQ4_NL", "GGML_TYPE_IQ4_XS", "GGML_TYPE_MXFP4", "GGML_TYPE_NVFP4"
++    "GGML_TYPE_IQ1_S", "GGML_TYPE_IQ4_NL", "GGML_TYPE_IQ4_XS", "GGML_TYPE_MXFP4", "GGML_TYPE_NVFP4",
++    "GGML_TYPE_SA2", "GGML_TYPE_SA3", "GGML_TYPE_SA4", "GGML_TYPE_SA2_128", "GGML_TYPE_SA3_128", "GGML_TYPE_SA4_128", "GGML_TYPE_SA2_256", "GGML_TYPE_SA3_256", "GGML_TYPE_SA4_256", "GGML_TYPE_SA5", "GGML_TYPE_SA5_128", "GGML_TYPE_SA5_256", "GGML_TYPE_SA6", "GGML_TYPE_SA6_128", "GGML_TYPE_SA6_256"
+ ]
+ 
+ SOURCE_MMQ = """// This file has been autogenerated by generate_cu_files.py, do not edit manually.
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2.cu
+new file mode 100644
+index 000000000..6f677b0ed
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA2);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2_128.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2_128.cu
+new file mode 100644
+index 000000000..a2c1afcfd
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2_128.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA2_128);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2_256.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2_256.cu
+new file mode 100644
+index 000000000..1de50ebf7
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa2_256.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA2_256);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3.cu
+new file mode 100644
+index 000000000..00c26d8de
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA3);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3_128.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3_128.cu
+new file mode 100644
+index 000000000..be838ce58
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3_128.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA3_128);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3_256.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3_256.cu
+new file mode 100644
+index 000000000..3052b909c
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa3_256.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA3_256);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4.cu
+new file mode 100644
+index 000000000..9d476192d
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA4);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4_128.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4_128.cu
+new file mode 100644
+index 000000000..5b8660e7d
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4_128.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA4_128);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4_256.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4_256.cu
+new file mode 100644
+index 000000000..771999436
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa4_256.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA4_256);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5.cu
+new file mode 100644
+index 000000000..0e2aa411a
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA5);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5_128.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5_128.cu
+new file mode 100644
+index 000000000..c93faa364
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5_128.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA5_128);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5_256.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5_256.cu
+new file mode 100644
+index 000000000..87a545a95
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa5_256.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA5_256);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6.cu
+new file mode 100644
+index 000000000..60155f30d
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA6);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6_128.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6_128.cu
+new file mode 100644
+index 000000000..8ca515ad1
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6_128.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA6_128);
+diff --git a/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6_256.cu b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6_256.cu
+new file mode 100644
+index 000000000..ff9c2d341
+--- /dev/null
++++ b/ggml/src/ggml-cuda/template-instances/mmq-instance-sa6_256.cu
+@@ -0,0 +1,5 @@
++// This file has been autogenerated by generate_cu_files.py, do not edit manually.
++
++#include "../mmq.cuh"
++
++DECL_MMQ_CASE(GGML_TYPE_SA6_256);
+diff --git a/ggml/src/ggml-cuda/vecdotq.cuh b/ggml/src/ggml-cuda/vecdotq.cuh
+index c7acdacaf..70db9e607 100644
+--- a/ggml/src/ggml-cuda/vecdotq.cuh
++++ b/ggml/src/ggml-cuda/vecdotq.cuh
+@@ -751,6 +751,53 @@ static __device__ __forceinline__ float vec_dot_q1_0_q8_1(
+     return d1 * d8 * sumi;
+ }
+ 
++// ShiftAdd / BCQ x q8_1 for MMVQ. A thread handles VDR_SA_Q8_1_MMVQ consecutive 32-element chunks starting at
++// chunk iqs (0..7) of the 256-element super-block.
++// Per bit-plane p: sum_j s_j*y_j = 2*sum_{bit=1} y_j - sum_j y_j, the bit-masked sum done with dp4a on 0/1 bytes,
++// i.e. the inner loop only selects-and-adds activations; scales are applied once per (plane, chunk).
++#define VDR_SA_Q8_1_MMVQ 1 // one chunk per thread was faster than two on A100
++#define VDR_SA_Q8_1_MMQ  VDR_Q8_0_Q8_1_MMQ
++
++template <int Q, int G, typename block_t>
++static __device__ __forceinline__ float vec_dot_sa_q8_1(
++    const void * __restrict__ vbq, const block_q8_1 * __restrict__ bq8_1, const int & kbx, const int & iqs) {
++
++    const block_t * bx = (const block_t *) vbq + kbx;
++
++    float acc = 0.0f;
++#pragma unroll
++    for (int c = 0; c < VDR_SA_Q8_1_MMVQ; ++c) {
++        const int ic = iqs + c;
++        const block_q8_1 * by = bq8_1 + ic;
++        int bits[Q];
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            bits[p] = sizeof(block_t) % 2 == 0 ? get_int_b2(bx->qs, p*8 + ic) : get_int_b1(bx->qs, p*8 + ic);
++        }
++        int sumi[Q];
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            sumi[p] = 0;
++        }
++#pragma unroll
++        for (int k = 0; k < 8; ++k) {
++            const int u = get_int_b4(by->qs, k);
++#pragma unroll
++            for (int p = 0; p < Q; ++p) {
++                const int m = (((bits[p] >> (4*k)) & 0xF) * 0x00204081) & 0x01010101;
++                sumi[p] = ggml_cuda_dp4a(m, u, sumi[p]);
++            }
++        }
++        const float2 ds = __half22float2(by->ds);
++        const int g = ic*32 / G;
++#pragma unroll
++        for (int p = 0; p < Q; ++p) {
++            acc += (float) bx->a[g*Q + p] * (2.0f*ds.x*sumi[p] - ds.y);
++        }
++    }
++    return ggml_cuda_sa_d(bx) * acc;
++}
++
+ static __device__ __forceinline__ float vec_dot_q2_0_q8_1(
+     const void * __restrict__ vbq, const block_q8_1 * __restrict__ bq8_1, const int & kbx, const int & iqs) {
+ 

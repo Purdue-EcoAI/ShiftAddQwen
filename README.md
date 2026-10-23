@@ -17,6 +17,17 @@ standard llama.cpp recipes (`Q8_0`, `Q4_K_M`, `Q3_K_M`) and Unsloth's imatrix-ca
 recipes (`UD-Q3_K_XL`, `UD-IQ3_XXS`, `UD-Q2_K_XL`, `UD-IQ2_M`). `Q4_K_M` (5.87 GB) is the reference
 4-bit deployment.
 
+## News
+
+- **2026-10-23.** The `sa*` types are rebased on current llama.cpp `master` (`36e36e63a`) as two patches:
+  [`llama.cpp/shiftadd-master-cpu.patch`](llama.cpp/shiftadd-master-cpu.patch) adds the types with CPU kernels
+  (generic, AVX2, AVX2 + VNNI, AVX-512 + VNNI, NEON), and
+  [`llama.cpp/shiftadd-master-cuda.patch`](llama.cpp/shiftadd-master-cuda.patch), applied on top, adds the CUDA kernels
+  (MMVQ decode, MMQ prefill for batches below 64, dequantize + cuBLAS above, and MoE `MUL_MAT_ID`). Both are
+  tested against the CPU backend on V100 and A100 and pass llama.cpp's CPU CI. Upstreaming is proposed in
+  [llama.cpp discussion #31051](https://github.com/ggml-org/llama.cpp/discussions/31051). The
+  `shiftadd-b11538.patch` build used for the results below is unchanged.
+
 ## Results
 
 ![frontier](docs/frontier.png)
@@ -100,6 +111,9 @@ work/llama.cpp/build/bin/llama-server -m models/ShiftAddQwen-3.5-9B-4.4bits.gguf
     --jinja --spec-type draft-mtp --spec-draft-n-max 3      # MTP speculative decoding, as in Table 1
 ```
 
+To use current llama.cpp `master` instead, apply `llama.cpp/shiftadd-master-cpu.patch` and then
+`llama.cpp/shiftadd-master-cuda.patch` to a checkout of commit `36e36e63a` and build as usual.
+
 ## Reproduce
 
 Running or evaluating the released GGUF models needs 6–8 GB of GPU memory (any CUDA GPU; see
@@ -134,6 +148,7 @@ is shared by all target sizes; its four shards (`--layers 0-7`, …) can run on 
 | `saq/export_gguf.py` | GGUF writer for the new types (bit-exact packing and layout checks) |
 | `saq/data.py`, `saq/model.py` | calibration mixes, Qwen3.5 helpers, PyTorch KLD |
 | `llama.cpp/shiftadd-b11538.patch` | ggml types: CPU reference, CUDA dequant / get_rows / mat-vec, gguf-py, tests |
+| `llama.cpp/shiftadd-master-{cpu,cuda}.patch` | the same types on llama.cpp `master`: CPU kernels (AVX2 / AVX-512 / NEON), then CUDA (MMVQ, MMQ, MoE); apply in that order |
 | `scripts/`, `tools/` | setup, pipeline, evaluation, benchmarks, plots |
 
 ## Citation
