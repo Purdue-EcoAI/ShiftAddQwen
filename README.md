@@ -1,6 +1,6 @@
 # ShiftAddQwen
 
-**Models:** [huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF](https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF) · **Code:** this repository
+**Models:** [huggingface.co/EcoAI-Lab/ShiftAddQwen-3.5-9B-GGUF](https://huggingface.co/EcoAI-Lab/ShiftAddQwen-3.5-9B-GGUF) · **Code:** this repository
 
 **ShiftAddQwen** applies the [ShiftAddLLM](https://arxiv.org/abs/2406.05981) reparameterization to
 Qwen3.5-9B (hybrid Gated-DeltaNet / full attention, with MTP head) and deploys it through llama.cpp.
@@ -31,7 +31,7 @@ recipes (`UD-Q3_K_XL`, `UD-IQ3_XXS`, `UD-Q2_K_XL`, `UD-IQ2_M`). `Q4_K_M` (5.87 G
   Q3_K_M ([docs/results.md](docs/results.md#agentic-benchmarks-tool-calling)), and a note on the sign-select mat-vec
   and how ShiftAddQwen relates to ShiftAddLLM ([docs/shiftadd_matvec.pdf](docs/shiftadd_matvec.pdf)).
 - **2026-10-20.** First release: ShiftAddQwen-3.5-9B at 3.0, 3.2, 3.6, 4.0 and 4.4 bits on the
-  [Hub](https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF), with the quantization pipeline and the
+  [Hub](https://huggingface.co/EcoAI-Lab/ShiftAddQwen-3.5-9B-GGUF), with the quantization pipeline and the
   patched llama.cpp (`b11538`) in this repository.
 
 ## Results
@@ -105,14 +105,14 @@ serves.
 
 ## Run a released model
 
-Released GGUFs (Hub: [hryou1998/ShiftAddQwen-3.5-9B-GGUF](https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF)):
+Released GGUFs (Hub: [EcoAI-Lab/ShiftAddQwen-3.5-9B-GGUF](https://huggingface.co/EcoAI-Lab/ShiftAddQwen-3.5-9B-GGUF)):
 `ShiftAddQwen-3.5-9B-{3.0,3.2,3.6,4.0,4.4}bits.gguf` (3.90–5.10 GB; see Table 1 for the trade-offs).
 The models use new `ggml` quant types, so they need the patched llama.cpp from this repository
 (stock llama.cpp refuses to load them). 6–8 GB of GPU memory is enough for a 32K context.
 
 ```bash
 scripts/setup_llama.sh                   # llama.cpp b11538 + patch, CUDA build (CUDA_ARCH=80 default; set yours)
-hf download hryou1998/ShiftAddQwen-3.5-9B-GGUF ShiftAddQwen-3.5-9B-4.4bits.gguf --local-dir models
+hf download EcoAI-Lab/ShiftAddQwen-3.5-9B-GGUF ShiftAddQwen-3.5-9B-4.4bits.gguf --local-dir models
 work/llama.cpp/build/bin/llama-server -m models/ShiftAddQwen-3.5-9B-4.4bits.gguf -ngl 99 -fa on -c 32768 \
     --jinja --spec-type draft-mtp --spec-draft-n-max 3      # MTP speculative decoding, as in Table 1
 ```
@@ -168,7 +168,7 @@ for what is kept and what is replaced); please cite both.
   author={You, Haoran},
   year={2026},
   howpublished={\url{https://github.com/Purdue-EcoAI/ShiftAddQwen}},
-  note={Models: \url{https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF}}
+  note={Models: \url{https://huggingface.co/EcoAI-Lab/ShiftAddQwen-3.5-9B-GGUF}}
 }
 
 @inproceedings{you2024shiftaddllm,
