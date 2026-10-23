@@ -27,6 +27,12 @@ recipes (`UD-Q3_K_XL`, `UD-IQ3_XXS`, `UD-Q2_K_XL`, `UD-IQ2_M`). `Q4_K_M` (5.87 G
   tested against the CPU backend on V100 and A100 and pass llama.cpp's CPU CI. Upstreaming is proposed in
   [llama.cpp discussion #31051](https://github.com/ggml-org/llama.cpp/discussions/31051). The
   `shiftadd-b11538.patch` build used for the results below is unchanged.
+- **2026-10-22.** Tool-calling results: BFCL v4 and τ-bench for the 4.4- and 4.0-bit models against Q4_K_M and
+  Q3_K_M ([docs/results.md](docs/results.md#agentic-benchmarks-tool-calling)), and a note on the sign-select mat-vec
+  and how ShiftAddQwen relates to ShiftAddLLM ([docs/shiftadd_matvec.pdf](docs/shiftadd_matvec.pdf)).
+- **2026-10-20.** First release: ShiftAddQwen-3.5-9B at 3.0, 3.2, 3.6, 4.0 and 4.4 bits on the
+  [Hub](https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF), with the quantization pipeline and the
+  patched llama.cpp (`b11538`) in this repository.
 
 ## Results
 
