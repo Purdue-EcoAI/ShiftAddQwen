@@ -167,7 +167,7 @@ for what is kept and what is replaced); please cite both.
   title={ShiftAddQwen: ShiftAdd reparameterization of Qwen3.5-9B for llama.cpp},
   author={You, Haoran},
   year={2026},
-  howpublished={\url{https://github.com/ranery/ShiftAddQwen}},
+  howpublished={\url{https://github.com/Purdue-EcoAI/ShiftAddQwen}},
   note={Models: \url{https://huggingface.co/hryou1998/ShiftAddQwen-3.5-9B-GGUF}}
 }
 
